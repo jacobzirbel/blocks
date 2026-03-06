@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { delay, map } from 'rxjs/operators';
 import {
   BlocksInfo,
   PhraseCheckResult,
@@ -10,8 +10,8 @@ import {
 } from '../models/blocks.models';
 import { BlockConfigService } from './block-config.service';
 
-// const API_BASE = 'http://localhost:8000';
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:8000';
+// const API_BASE = '/api';
 
 const MOCK_WORDS_BY_COUNT: WordsByBlockCount = {
   2: [
@@ -69,13 +69,33 @@ export class BlocksService {
     return this.http.post<PhraseCheckResult>(`${API_BASE}/check`, { phrase });
   }
 
-  findWords(commonOnly = true): Observable<WordsByBlockCount> {
+  findWords(commonOnly = true, allBlocks?: string[]): Observable<WordsByBlockCount> {
     if (this.useMocks) {
       return of(MOCK_WORDS_BY_COUNT).pipe(delay(600));
     }
-    return this.http.get<WordsByBlockCount>(`${API_BASE}/words`, {
-      params: { common_only: String(commonOnly) },
-    });
+    const blocks = allBlocks || this.blockConfig.blocks();
+    if (!allBlocks) {
+      return this.http.get<WordsByBlockCount>(`${API_BASE}/words`, {
+        params: { common_only: String(commonOnly) },
+      });
+    }
+    return this.http.post<PhraseBuilderState>(`${API_BASE}/builder/words`, {
+      all_blocks: blocks,
+      chosen_words: [],
+      common_only: commonOnly,
+    }).pipe(
+      map(state => this.groupWordsByBlockCount(state.availableWords))
+    );
+  }
+
+  private groupWordsByBlockCount(words: any[]): WordsByBlockCount {
+    const grouped: WordsByBlockCount = {};
+    for (const word of words) {
+      const key = word.numBlocks;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(word);
+    }
+    return grouped;
   }
 
   findPhrases(): Observable<string[]> {

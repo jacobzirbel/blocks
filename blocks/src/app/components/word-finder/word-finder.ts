@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { BlocksService } from '../../services/blocks.service';
+import { BlockConfigService } from '../../services/block-config.service';
 import { WordsByBlockCount, WordResult } from '../../models/blocks.models';
 
 @Component({
@@ -10,6 +11,7 @@ import { WordsByBlockCount, WordResult } from '../../models/blocks.models';
 })
 export class WordFinder {
   private readonly service = inject(BlocksService);
+  readonly blockConfig = inject(BlockConfigService);
 
   commonOnly = signal(true);
   loading = signal(false);
@@ -31,7 +33,7 @@ export class WordFinder {
   search() {
     this.loading.set(true);
     this.error.set(null);
-    this.service.findWords(this.commonOnly()).subscribe({
+    this.service.findWords(this.commonOnly(), this.blockConfig.blocks()).subscribe({
       next: results => {
         this.rawResults.set(results);
         this.searched.set(true);

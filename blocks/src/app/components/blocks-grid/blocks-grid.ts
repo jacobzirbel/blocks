@@ -23,6 +23,7 @@ export class BlocksGrid {
       this.blockConfig.useSaved();
     } else {
       this.blockConfig.preset.set('custom');
+      this.customText.set(this.blockConfig.savedCustomBlocks().join('\n'));
     }
   }
 
