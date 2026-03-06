@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { EMPTY, Subject } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { BlocksService } from '../../services/blocks.service';
 import { BlockConfigService } from '../../services/block-config.service';
 import { WordResult } from '../../models/blocks.models';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 
 @Component({
@@ -33,6 +36,8 @@ import { WordResult } from '../../models/blocks.models';
 
       @if (loading()) {
         <p class="status">Finding words...</p>
+      } @else if (loadError()) {
+        <p class="status error">{{ loadError() }}</p>
       } @else if (availableWords().length === 0) {
         <p class="status">No more words can be formed with remaining blocks.</p>
       } @else {
@@ -165,7 +170,11 @@ import { WordResult } from '../../models/blocks.models';
     }
     .count { font-size: 0.85rem; color: #666; margin-left: auto; }
     .status { color: #666; }
-    .word-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+    .error { color: #d32f2f; }
+    .word-list {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-bottom: 1.5rem; justify-content: flex-start; align-content: flex-start;
+    }
     .word-btn {
       padding: 0.5rem 0.75rem;
       border: 2px solid #1976d2; background: white;
@@ -201,19 +210,45 @@ export class PhraseBuilder {
   phraseWords = signal<string[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
+  loadError = signal<string | null>(null);
   searchTerm = signal('');
   commonOnly = true;
   customWord = signal('');
   customWordError = signal<string | null>(null);
   checkingCustomWord = signal(false);
 
+  private readonly loadTrigger = new Subject<void>();
+
   filteredWords = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    if (!term) return this.availableWords();
-    return this.availableWords().filter(w => w.word.includes(term));
+    const words = term
+      ? this.availableWords().filter(w => w.word.includes(term))
+      : this.availableWords();
+    return [...words].sort((a, b) => a.word.length - b.word.length || a.word.localeCompare(b.word));
   });
 
   constructor() {
+    this.loadTrigger.pipe(
+      switchMap(() => {
+        this.loading.set(true);
+        this.loadError.set(null);
+        return this.service.getBuilderWords(this.allBlocks(), this.phraseWords(), this.commonOnly).pipe(
+          catchError((err: { status?: number }) => {
+            this.loading.set(false);
+            this.loadError.set(
+              err.status === 408
+                ? 'Word search timed out. Try reducing the number of blocks.'
+                : 'Failed to load words. Please try again.'
+            );
+            return EMPTY;
+          }),
+        );
+      }),
+      takeUntilDestroyed(),
+    ).subscribe(state => {
+      this.availableWords.set(state.availableWords);
+      this.loading.set(false);
+    });
     this.loadWords();
   }
 
@@ -222,14 +257,7 @@ export class PhraseBuilder {
   }
 
   private loadWords() {
-    this.loading.set(true);
-    this.service.getBuilderWords(this.allBlocks(), this.phraseWords(), this.commonOnly).subscribe({
-      next: state => {
-        this.availableWords.set(state.availableWords);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.loadTrigger.next();
   }
 
   pickWord(item: WordResult) {
@@ -269,6 +297,7 @@ export class PhraseBuilder {
     this.searchTerm.set('');
     this.customWord.set('');
     this.customWordError.set(null);
+    this.loadError.set(null);
     this.loadWords();
   }
 }
