@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -112,7 +113,7 @@ def match_word_to_blocks(word: str, blocks: list[str]) -> tuple[bool, list[str]]
     from itertools import combinations as _combos
     n = len(word)
     for size in range(n, len(blocks) + 1):
-        best_used: list[str] | None = None
+        best_used: Optional[List[str]] = None
         best_score = -1
         for combo_indices in _combos(range(len(blocks)), size):
             combo = [blocks[i] for i in combo_indices]
@@ -142,15 +143,15 @@ class PhraseCheckRequest(BaseModel):
 
 
 class BuilderWordsRequest(BaseModel):
-    all_blocks: list[str] = Field(default_factory=list)
-    chosen_words: list[str] = Field(default_factory=list)
+    all_blocks: List[str] = Field(default_factory=list)
+    chosen_words: List[str] = Field(default_factory=list)
     common_only: bool = True
 
 
 class BuilderCheckRequest(BaseModel):
     word: str = Field(..., max_length=MAX_WORD_LEN)
-    all_blocks: list[str] = Field(default_factory=list)
-    chosen_words: list[str] = Field(default_factory=list)
+    all_blocks: List[str] = Field(default_factory=list)
+    chosen_words: List[str] = Field(default_factory=list)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
