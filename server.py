@@ -51,6 +51,10 @@ _executor = ThreadPoolExecutor(max_workers=4)
 _blocks_file = os.path.join(os.path.dirname(__file__), "blocks.txt")
 builder = BlockPhraseBuilder(_blocks_file)
 
+# Cache of custom builders keyed by frozenset of block strings, so find_possible_words
+# results are cached across requests for the same block set.
+_builder_cache: dict[tuple, BlockPhraseBuilder] = {}
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def run_with_timeout(fn, timeout: int):
@@ -177,11 +181,19 @@ def find_phrases(request: Request):
     return run_with_timeout(_run, TIMEOUT_PHRASES)
 
 
+def _get_builder(blocks: list[str]) -> BlockPhraseBuilder:
+    """Return a cached builder for the given block set, creating one if needed."""
+    key = tuple(sorted(blocks))
+    if key not in _builder_cache:
+        _builder_cache[key] = BlockPhraseBuilder.from_blocks(blocks)
+    return _builder_cache[key]
+
+
 @app.post("/builder/words")
 @limiter.limit("20/minute")
 def builder_words(body: BuilderWordsRequest, request: Request):
     remaining = validate_blocks(body.remaining_blocks)
-    custom_builder = BlockPhraseBuilder.from_blocks(remaining)
+    custom_builder = _get_builder(remaining)
 
     def _run():
         results = custom_builder.find_possible_words(common_only=body.common_only)
