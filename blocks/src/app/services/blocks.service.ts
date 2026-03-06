@@ -8,11 +8,9 @@ import {
   WordsByBlockCount,
   PhraseBuilderState,
 } from '../models/blocks.models';
+import { BlockConfigService } from './block-config.service';
 
 const API_BASE = 'http://localhost:8000';
-
-// Mock data reflecting blocks.txt: mwja, bozt, hujiv, fsw, zmnewq, anrxf, rexpji, jwo, yljdr, ly, cpn
-const MOCK_BLOCKS = ['mwja', 'bozt', 'hujiv', 'fsw', 'zmnewq', 'anrxf', 'rexpji', 'jwo', 'yljdr', 'ly', 'cpn'];
 
 const MOCK_WORDS_BY_COUNT: WordsByBlockCount = {
   2: [
@@ -41,13 +39,15 @@ const MOCK_PHRASES = ['joy wren', 'fly worn', 'nor ply', 'wry on'];
 @Injectable({ providedIn: 'root' })
 export class BlocksService {
   private readonly http = inject(HttpClient);
+  private readonly blockConfig = inject(BlockConfigService);
   private useMocks = true; // flip to false once server is running
 
   getBlocks(): Observable<BlocksInfo> {
     if (this.useMocks) {
+      const blocks = this.blockConfig.blocks();
       return of({
-        blocks: MOCK_BLOCKS.map(l => ({ letters: l })),
-        totalLetters: MOCK_BLOCKS.reduce((s, b) => s + b.length, 0),
+        blocks: blocks.map((l: string) => ({ letters: l })),
+        totalLetters: blocks.reduce((s: number, b: string) => s + b.length, 0),
       }).pipe(delay(200));
     }
     return this.http.get<BlocksInfo>(`${API_BASE}/blocks`);
@@ -57,10 +57,11 @@ export class BlocksService {
     if (this.useMocks) {
       const clean = phrase.replace(/\s/g, '').toLowerCase();
       const canForm = clean.length <= 6;
+      const blocks = this.blockConfig.blocks();
       return of({
         phrase,
         canForm,
-        blocksUsed: canForm ? MOCK_BLOCKS.slice(0, 3) : [],
+        blocksUsed: canForm ? blocks.slice(0, 3) : [],
         missingLetters: (canForm ? {} : { q: 1 }) as Record<string, number>,
       }).pipe(delay(400));
     }
@@ -83,7 +84,7 @@ export class BlocksService {
     return this.http.get<string[]>(`${API_BASE}/phrases`);
   }
 
-  getBuilderWords(remainingBlocks: string[]): Observable<PhraseBuilderState> {
+  getBuilderWords(remainingBlocks: string[], commonOnly = true): Observable<PhraseBuilderState> {
     if (this.useMocks) {
       const words = Object.values(MOCK_WORDS_BY_COUNT)
         .flat()
@@ -96,6 +97,7 @@ export class BlocksService {
     }
     return this.http.post<PhraseBuilderState>(`${API_BASE}/builder/words`, {
       remaining_blocks: remainingBlocks,
+      common_only: commonOnly,
     });
   }
 }

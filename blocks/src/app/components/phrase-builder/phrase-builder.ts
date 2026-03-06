@@ -1,12 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { BlocksService } from '../../services/blocks.service';
+import { BlockConfigService } from '../../services/block-config.service';
 import { WordResult } from '../../models/blocks.models';
-
-const ALL_BLOCKS = ['mwja', 'bozt', 'hujiv', 'fsw', 'zmnewq', 'anrxf', 'rexpji', 'jwo', 'yljdr', 'ly', 'cpn'];
 
 @Component({
   selector: 'app-phrase-builder',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FormsModule],
   template: `
     <div class="builder-page">
       <h2>Interactive Phrase Builder</h2>
@@ -37,19 +38,38 @@ const ALL_BLOCKS = ['mwja', 'bozt', 'hujiv', 'fsw', 'zmnewq', 'anrxf', 'rexpji',
       } @else if (availableWords().length === 0) {
         <p class="status">No more words can be formed with remaining blocks.</p>
       } @else {
-        <h3>Available words ({{ availableWords().length }})</h3>
-        <div class="word-list">
-          @for (item of availableWords(); track item.word) {
-            <button class="word-btn" (click)="pickWord(item)">
-              <span class="word">{{ item.word }}</span>
-              <span class="blocks">
-                @for (b of item.blocks; track b) {
-                  <span class="mini-chip">{{ b }}</span>
-                }
-              </span>
-            </button>
-          }
+        <div class="controls-bar">
+          <input
+            class="search-input"
+            type="search"
+            placeholder="Search words…"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+          <label class="toggle-label">
+            <input type="checkbox" [(ngModel)]="commonOnly" (ngModelChange)="onCommonOnlyChange()" />
+            Common words only
+          </label>
+          <span class="count">
+            {{ filteredWords().length }} / {{ availableWords().length }} words
+          </span>
         </div>
+        @if (filteredWords().length === 0) {
+          <p class="status">No words match your search.</p>
+        } @else {
+          <div class="word-list">
+            @for (item of filteredWords(); track item.word) {
+              <button class="word-btn" (click)="pickWord(item)">
+                <span class="word">{{ item.word }}</span>
+                <span class="blocks">
+                  @for (b of item.blocks; track b) {
+                    <span class="mini-chip">{{ b }}</span>
+                  }
+                </span>
+              </button>
+            }
+          </div>
+        }
       }
 
       @if (phraseWords().length > 0) {
@@ -90,8 +110,21 @@ const ALL_BLOCKS = ['mwja', 'bozt', 'hujiv', 'fsw', 'zmnewq', 'anrxf', 'rexpji',
       padding: 0.2rem 0.6rem; border-radius: 4px;
       font-size: 0.85rem; font-family: monospace;
     }
+    .controls-bar {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 0.75rem; flex-wrap: wrap;
+    }
+    .search-input {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid #ccc; border-radius: 6px;
+      font-size: 0.95rem; width: 220px;
+    }
+    .toggle-label {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.9rem; cursor: pointer;
+    }
+    .count { font-size: 0.85rem; color: #666; margin-left: auto; }
     .status { color: #666; }
-    h3 { margin: 0 0 0.75rem; font-size: 1rem; color: #444; }
     .word-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
     .word-btn {
       display: flex; flex-direction: column; align-items: flex-start;
@@ -115,21 +148,34 @@ const ALL_BLOCKS = ['mwja', 'bozt', 'hujiv', 'fsw', 'zmnewq', 'anrxf', 'rexpji',
     }
   `],
 })
-export class PhraseBuilder implements OnInit {
+export class PhraseBuilder {
   private readonly service = inject(BlocksService);
+  private readonly blockConfig = inject(BlockConfigService);
 
-  remainingBlocks = signal<string[]>([...ALL_BLOCKS]);
+  remainingBlocks = signal<string[]>([...this.blockConfig.blocks()]);
   phraseWords = signal<string[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
+  searchTerm = signal('');
+  commonOnly = true;
 
-  ngOnInit() {
+  filteredWords = computed(() => {
+    const term = this.searchTerm().toLowerCase().trim();
+    if (!term) return this.availableWords();
+    return this.availableWords().filter(w => w.word.includes(term));
+  });
+
+  constructor() {
+    this.loadWords();
+  }
+
+  onCommonOnlyChange() {
     this.loadWords();
   }
 
   private loadWords() {
     this.loading.set(true);
-    this.service.getBuilderWords(this.remainingBlocks()).subscribe({
+    this.service.getBuilderWords(this.remainingBlocks(), this.commonOnly).subscribe({
       next: state => {
         this.availableWords.set(state.availableWords);
         this.loading.set(false);
@@ -148,12 +194,14 @@ export class PhraseBuilder implements OnInit {
       }
       return updated;
     });
+    this.searchTerm.set('');
     this.loadWords();
   }
 
   reset() {
-    this.remainingBlocks.set([...ALL_BLOCKS]);
+    this.remainingBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
+    this.searchTerm.set('');
     this.loadWords();
   }
 }
