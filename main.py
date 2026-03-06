@@ -21,13 +21,13 @@ try:
         try:
             brown_words = brown.words()
             freq_dist = FreqDist(w.lower() for w in brown_words if w.isalpha())
-            # Get top 10000 most common words
-            COMMON_WORDS = set(word for word, _ in freq_dist.most_common(10000))
+            # Get top 12000 most common words
+            COMMON_WORDS = set(word for word, _ in freq_dist.most_common(12000))
         except LookupError:
             nltk.download('brown', quiet=True)
             brown_words = brown.words()
             freq_dist = FreqDist(w.lower() for w in brown_words if w.isalpha())
-            COMMON_WORDS = set(word for word, _ in freq_dist.most_common(10000))
+            COMMON_WORDS = set(word for word, _ in freq_dist.most_common(12000))
 
     except LookupError:
         print("Downloading NLTK corpus...")
@@ -38,7 +38,7 @@ try:
         NLTK_WORDS = set(w.lower() for w in words.words())
         brown_words = brown.words()
         freq_dist = FreqDist(w.lower() for w in brown_words if w.isalpha())
-        COMMON_WORDS = set(word for word, _ in freq_dist.most_common(10000))
+        COMMON_WORDS = set(word for word, _ in freq_dist.most_common(12000))
 except ImportError:
     print("Warning: NLTK not installed. Install with: pip install nltk")
     NLTK_WORDS = set()

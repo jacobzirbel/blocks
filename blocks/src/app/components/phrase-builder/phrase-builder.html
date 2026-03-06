@@ -34,10 +34,10 @@
         [ngModel]="searchTerm()"
         (ngModelChange)="searchTerm.set($event)"
       />
-      <label class="toggle-label">
+      <!-- <label class="toggle-label">
         <input type="checkbox" [(ngModel)]="commonOnly" (ngModelChange)="onCommonOnlyChange()" />
         Common words only
-      </label>
+      </label> -->
       <span class="count">
         {{ filteredWords().length }} / {{ availableWords().length }} words
       </span>

@@ -3,10 +3,10 @@
   <p class="hint">Find all English words that can be spelled using the available blocks.</p>
 
   <div class="controls">
-    <label class="toggle">
+    <!-- <label class="toggle">
       <input type="checkbox" [checked]="commonOnly()" (change)="commonOnly.set(!commonOnly())" />
       Common words only
-    </label>
+    </label> -->
     <button (click)="search()" [disabled]="loading()">
       {{ loading() ? 'Searching...' : 'Find Words' }}
     </button>
