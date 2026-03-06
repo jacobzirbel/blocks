@@ -341,10 +341,15 @@ class BlockPhraseBuilder:
         be spelled simultaneously from the available blocks, ensuring that picking
         W remains possible regardless of how the context blocks were assigned.
         """
-        all_words = self.find_possible_words(common_only=common_only)
         if not context_phrase.strip():
-            return all_words
+            return self.find_possible_words(common_only=common_only)
 
+        # Early check: if context phrase uses all blocks, no words can be added
+        can_form, blocks_used, _ = self.can_form_phrase(context_phrase)
+        if not can_form or len(blocks_used) >= len(self.blocks):
+            return {}
+
+        all_words = self.find_possible_words(common_only=common_only)
         result = {}
         for num_blocks, words in all_words.items():
             filtered = [
