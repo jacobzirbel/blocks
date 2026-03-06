@@ -28,7 +28,7 @@ MAX_WORD_LEN = 50
 TIMEOUT_CHECK = 10        # seconds — phrase checking
 TIMEOUT_WORDS = 60 * 5        # seconds — word finding (cached after first call)
 TIMEOUT_PHRASES = 90  * 5    # seconds — phrase finding (very heavy)
-TIMEOUT_BUILDER = 1 #60  * 5    # seconds — interactive builder ops
+TIMEOUT_BUILDER = 60  * 5    # seconds — interactive builder ops
 
 # ── App ────────────────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
