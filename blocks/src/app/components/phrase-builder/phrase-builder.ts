@@ -4,6 +4,7 @@ import { BlocksService } from '../../services/blocks.service';
 import { BlockConfigService } from '../../services/block-config.service';
 import { WordResult } from '../../models/blocks.models';
 
+
 @Component({
   selector: 'app-phrase-builder',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,12 +25,9 @@ import { WordResult } from '../../models/blocks.models';
       </div>
 
       <div class="blocks-remaining">
-        <span class="label">Remaining blocks:</span>
-        @for (b of remainingBlocks(); track b) {
+        <span class="label">Blocks:</span>
+        @for (b of allBlocks(); track $index) {
           <span class="block-chip">{{ b }}</span>
-        }
-        @if (remainingBlocks().length === 0) {
-          <em>none</em>
         }
       </div>
 
@@ -59,14 +57,7 @@ import { WordResult } from '../../models/blocks.models';
         } @else {
           <div class="word-list">
             @for (item of filteredWords(); track item.word) {
-              <button class="word-btn" (click)="pickWord(item)">
-                <span class="word">{{ item.word }}</span>
-                <span class="blocks">
-                  @for (b of item.blocks; track b) {
-                    <span class="mini-chip">{{ b }}</span>
-                  }
-                </span>
-              </button>
+              <button class="word-btn" (click)="pickWord(item)">{{ item.word }}</button>
             }
           </div>
         }
@@ -110,14 +101,9 @@ import { WordResult } from '../../models/blocks.models';
     .empty { color: #aaa; font-size: 0.9rem; }
     .phrase { font-size: 1.1rem; flex: 1; }
     .reset-btn {
-      margin-left: auto;
-      padding: 0.3rem 0.8rem;
-      background: #e53935;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
+      margin-left: auto; padding: 0.3rem 0.8rem;
+      background: #e53935; color: white; border: none;
+      border-radius: 6px; cursor: pointer; font-size: 0.85rem;
     }
     .blocks-remaining {
       display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
@@ -128,6 +114,42 @@ import { WordResult } from '../../models/blocks.models';
       padding: 0.2rem 0.6rem; border-radius: 4px;
       font-size: 0.85rem; font-family: monospace;
     }
+    .assignment-panel {
+      background: #fff8e1; border: 2px solid #f9a825;
+      border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;
+    }
+    .assignment-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .cancel-btn {
+      padding: 0.2rem 0.6rem; background: none; border: 1px solid #999;
+      border-radius: 4px; cursor: pointer; font-size: 0.8rem; color: #555;
+    }
+    .assignment-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .assignment-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+    .letter-badge {
+      font-weight: 700; font-size: 1rem; min-width: 1.4rem; text-align: center;
+      background: #e0e0e0; border-radius: 4px; padding: 0.1rem 0.3rem;
+    }
+    .block-chosen {
+      background: #1976d2; color: white; border: 2px solid #1976d2;
+      border-radius: 6px; padding: 0.25rem 0.6rem;
+      font-family: monospace; font-size: 0.9rem; cursor: default;
+    }
+    .block-alt {
+      background: white; color: #1976d2; border: 2px solid #1976d2;
+      border-radius: 6px; padding: 0.25rem 0.6rem;
+      font-family: monospace; font-size: 0.9rem; cursor: pointer;
+      transition: background 0.1s;
+    }
+    .block-alt:hover { background: #e3f2fd; }
+    .confirm-btn {
+      padding: 0.4rem 1.2rem; background: #f9a825; color: white;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 0.95rem; font-weight: 600;
+    }
+    .confirm-btn:hover { background: #f57f17; }
     .controls-bar {
       display: flex; align-items: center; gap: 1rem;
       margin-bottom: 0.75rem; flex-wrap: wrap;
@@ -145,20 +167,12 @@ import { WordResult } from '../../models/blocks.models';
     .status { color: #666; }
     .word-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
     .word-btn {
-      display: flex; flex-direction: column; align-items: flex-start;
       padding: 0.5rem 0.75rem;
       border: 2px solid #1976d2; background: white;
-      border-radius: 8px; cursor: pointer;
+      border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 1rem;
       transition: background 0.15s;
     }
     .word-btn:hover { background: #e3f2fd; }
-    .word { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
-    .blocks { display: flex; gap: 0.25rem; flex-wrap: wrap; }
-    .mini-chip {
-      background: #1976d2; color: white;
-      padding: 0.1rem 0.4rem; border-radius: 3px;
-      font-size: 0.7rem; font-family: monospace;
-    }
     .custom-word-bar {
       display: flex; align-items: center; gap: 0.5rem;
       margin-bottom: 1.5rem; flex-wrap: wrap;
@@ -175,8 +189,7 @@ import { WordResult } from '../../models/blocks.models';
     .custom-error { color: #d32f2f; font-size: 0.85rem; }
     .final {
       background: #e8f5e9; border: 2px solid #388e3c;
-      border-radius: 8px; padding: 0.75rem 1rem;
-      font-size: 1.1rem;
+      border-radius: 8px; padding: 0.75rem 1rem; font-size: 1.1rem;
     }
   `],
 })
@@ -184,7 +197,7 @@ export class PhraseBuilder {
   private readonly service = inject(BlocksService);
   private readonly blockConfig = inject(BlockConfigService);
 
-  remainingBlocks = signal<string[]>([...this.blockConfig.blocks()]);
+  allBlocks = signal<string[]>([...this.blockConfig.blocks()]);
   phraseWords = signal<string[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
@@ -210,7 +223,7 @@ export class PhraseBuilder {
 
   private loadWords() {
     this.loading.set(true);
-    this.service.getBuilderWords(this.remainingBlocks(), this.commonOnly).subscribe({
+    this.service.getBuilderWords(this.allBlocks(), this.phraseWords(), this.commonOnly).subscribe({
       next: state => {
         this.availableWords.set(state.availableWords);
         this.loading.set(false);
@@ -221,14 +234,6 @@ export class PhraseBuilder {
 
   pickWord(item: WordResult) {
     this.phraseWords.update(w => [...w, item.word]);
-    this.remainingBlocks.update(rb => {
-      const updated = [...rb];
-      for (const block of item.blocks) {
-        const idx = updated.indexOf(block);
-        if (idx !== -1) updated.splice(idx, 1);
-      }
-      return updated;
-    });
     this.searchTerm.set('');
     this.loadWords();
   }
@@ -240,19 +245,11 @@ export class PhraseBuilder {
     this.checkingCustomWord.set(true);
     this.customWordError.set(null);
 
-    this.service.checkBuilderWord(word, this.remainingBlocks()).subscribe({
+    this.service.checkBuilderWord(word, this.allBlocks(), this.phraseWords()).subscribe({
       next: result => {
         this.checkingCustomWord.set(false);
         if (result.canForm) {
           this.phraseWords.update(w => [...w, word.toLowerCase()]);
-          this.remainingBlocks.update(rb => {
-            const updated = [...rb];
-            for (const block of result.blocksUsed) {
-              const idx = updated.indexOf(block);
-              if (idx !== -1) updated.splice(idx, 1);
-            }
-            return updated;
-          });
           this.customWord.set('');
           this.loadWords();
         } else {
@@ -267,7 +264,7 @@ export class PhraseBuilder {
   }
 
   reset() {
-    this.remainingBlocks.set([...this.blockConfig.blocks()]);
+    this.allBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
     this.searchTerm.set('');
     this.customWord.set('');

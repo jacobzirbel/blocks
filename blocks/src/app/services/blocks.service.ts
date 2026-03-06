@@ -84,47 +84,39 @@ export class BlocksService {
     return this.http.get<string[]>(`${API_BASE}/phrases`);
   }
 
-  checkBuilderWord(word: string, remainingBlocks: string[]): Observable<{ canForm: boolean; blocksUsed: string[] }> {
+  checkBuilderWord(word: string, allBlocks: string[], chosenWords: string[]): Observable<{ canForm: boolean; blocksUsed: string[] }> {
     if (this.useMocks) {
-      return of(this.mockCanForm(word, remainingBlocks)).pipe(delay(100));
+      return of(this.mockCanForm(word, allBlocks, chosenWords)).pipe(delay(100));
     }
     return this.http.post<{ canForm: boolean; blocksUsed: string[] }>(`${API_BASE}/builder/check`, {
       word,
-      remaining_blocks: remainingBlocks,
+      all_blocks: allBlocks,
+      chosen_words: chosenWords,
     });
   }
 
-  private mockCanForm(word: string, blocks: string[]): { canForm: boolean; blocksUsed: string[] } {
-    const letters = word.replace(/\s/g, '').toLowerCase().split('');
-    // Sort most-constrained (fewest available blocks) first to maximize valid assignments
-    const countFor = (l: string) => blocks.filter(b => b.includes(l)).length;
+  private mockCanForm(word: string, allBlocks: string[], chosenWords: string[]): { canForm: boolean; blocksUsed: string[] } {
+    const combined = [...chosenWords, word].join(' ');
+    const letters = combined.replace(/\s/g, '').toLowerCase().split('');
+    const countFor = (l: string) => allBlocks.filter(b => b.includes(l)).length;
     letters.sort((a, b) => countFor(a) - countFor(b));
-
-    const available = blocks.map(b => ({ letters: b, used: false }));
-    const blocksUsed: string[] = [];
-
+    const available = allBlocks.map(b => ({ letters: b, used: false }));
     for (const letter of letters) {
       const block = available.find(b => !b.used && b.letters.includes(letter));
       if (!block) return { canForm: false, blocksUsed: [] };
       block.used = true;
-      blocksUsed.push(block.letters);
     }
-    return { canForm: true, blocksUsed };
+    return { canForm: true, blocksUsed: [] };
   }
 
-  getBuilderWords(remainingBlocks: string[], commonOnly = true): Observable<PhraseBuilderState> {
+  getBuilderWords(allBlocks: string[], chosenWords: string[], commonOnly = true): Observable<PhraseBuilderState> {
     if (this.useMocks) {
-      const words = Object.values(MOCK_WORDS_BY_COUNT)
-        .flat()
-        .filter(w => w.blocks.every((b: string) => remainingBlocks.includes(b)));
-      return of({
-        remainingBlocks,
-        phraseWords: [],
-        availableWords: words,
-      }).pipe(delay(400));
+      const words = Object.values(MOCK_WORDS_BY_COUNT).flat();
+      return of({ remainingBlocks: allBlocks, phraseWords: chosenWords, availableWords: words }).pipe(delay(400));
     }
     return this.http.post<PhraseBuilderState>(`${API_BASE}/builder/words`, {
-      remaining_blocks: remainingBlocks,
+      all_blocks: allBlocks,
+      chosen_words: chosenWords,
       common_only: commonOnly,
     });
   }

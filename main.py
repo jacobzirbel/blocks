@@ -233,13 +233,25 @@ class BlockPhraseBuilder:
     def find_blocks_for_word(self, word, block_indices):
         """
         Find the minimal set of block indices needed to form a word.
+        Among all minimum-size valid assignments, picks the one that maximises
+        total letters remaining (preserving the most options for future words).
         Returns (block_indices_used, block_strings) or (None, None) if impossible.
         """
         word_clean = word.replace(" ", "").lower()
+        block_index_set = set(block_indices)
         for size in range(1, len(block_indices) + 1):
+            best_combo = None
+            best_score = -1
             for combo in combinations(block_indices, size):
                 if self._can_form_with_blocks_matching(word_clean, combo):
-                    return list(combo), [self.blocks[i] for i in combo]
+                    remaining_letters = sum(
+                        len(self.blocks[i]) for i in block_index_set - set(combo)
+                    )
+                    if remaining_letters > best_score:
+                        best_score = remaining_letters
+                        best_combo = combo
+            if best_combo is not None:
+                return list(best_combo), [self.blocks[i] for i in best_combo]
         return None, None
 
     def find_possible_words(self, min_blocks=1, max_blocks=None, common_only=True, block_indices=None):
@@ -320,6 +332,27 @@ class BlockPhraseBuilder:
 
         self._word_cache[cache_key] = results
         return results
+
+    def find_words_for_context(self, context_phrase='', common_only=True):
+        """
+        Return all words that can be added to the given context phrase using this
+        builder's blocks. A word W is included only if (context_phrase + W) can
+        be spelled simultaneously from the available blocks, ensuring that picking
+        W remains possible regardless of how the context blocks were assigned.
+        """
+        all_words = self.find_possible_words(common_only=common_only)
+        if not context_phrase.strip():
+            return all_words
+
+        result = {}
+        for num_blocks, words in all_words.items():
+            filtered = [
+                item for item in words
+                if self.can_form_phrase((context_phrase + ' ' + item['word']).strip())[0]
+            ]
+            if filtered:
+                result[num_blocks] = filtered
+        return result
 
     def find_multiword_phrases(self, min_blocks_per_word=1, max_blocks_per_word=None, max_words=3, common_only=True):
         """

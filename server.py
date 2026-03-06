@@ -27,7 +27,7 @@ MAX_WORD_LEN = 50
 TIMEOUT_CHECK = 10        # seconds — phrase checking
 TIMEOUT_WORDS = 60 * 5        # seconds — word finding (cached after first call)
 TIMEOUT_PHRASES = 90  * 5    # seconds — phrase finding (very heavy)
-TIMEOUT_BUILDER = 60  * 5    # seconds — interactive builder ops
+TIMEOUT_BUILDER = 1 #60  * 5    # seconds — interactive builder ops
 
 # ── App ────────────────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
@@ -84,23 +84,48 @@ def validate_blocks(blocks: list[str]) -> list[str]:
     return result
 
 
+def _can_form_word(word: str, combo: list[str]) -> bool:
+    """Backtracking check: can the letters of word be covered by combo (one block per letter)?"""
+    letters = list(word.lower())
+    available = [{"letters": b, "used": False} for b in combo]
+
+    def bt(i: int) -> bool:
+        if i == len(letters):
+            return True
+        for b in available:
+            if not b["used"] and letters[i] in b["letters"]:
+                b["used"] = True
+                if bt(i + 1):
+                    return True
+                b["used"] = False
+        return False
+
+    return bt(0)
+
+
 def match_word_to_blocks(word: str, blocks: list[str]) -> tuple[bool, list[str]]:
     """
-    Check if a word can be formed from a list of block strings.
-    Uses most-constrained-first greedy matching.
+    Find the minimal block assignment for word that maximises letters remaining
+    (preserving the most options for future words).
     Returns (can_form, list_of_block_strings_used).
     """
-    letters = list(word.lower())
-    letters.sort(key=lambda l: sum(1 for b in blocks if l in b))
-    available = [{"letters": b, "used": False} for b in blocks]
-    used: list[str] = []
-    for letter in letters:
-        block = next((b for b in available if not b["used"] and letter in b["letters"]), None)
-        if not block:
-            return False, []
-        block["used"] = True
-        used.append(block["letters"])
-    return True, used
+    from itertools import combinations as _combos
+    n = len(word)
+    for size in range(n, len(blocks) + 1):
+        best_used: list[str] | None = None
+        best_score = -1
+        for combo_indices in _combos(range(len(blocks)), size):
+            combo = [blocks[i] for i in combo_indices]
+            if _can_form_word(word, combo):
+                remaining_letters = sum(
+                    len(blocks[i]) for i in range(len(blocks)) if i not in combo_indices
+                )
+                if remaining_letters > best_score:
+                    best_score = remaining_letters
+                    best_used = combo
+        if best_used is not None:
+            return True, best_used
+    return False, []
 
 
 def format_word_results(results: dict) -> list[dict]:
@@ -117,13 +142,15 @@ class PhraseCheckRequest(BaseModel):
 
 
 class BuilderWordsRequest(BaseModel):
-    remaining_blocks: list[str] = Field(default_factory=list)
+    all_blocks: list[str] = Field(default_factory=list)
+    chosen_words: list[str] = Field(default_factory=list)
     common_only: bool = True
 
 
 class BuilderCheckRequest(BaseModel):
     word: str = Field(..., max_length=MAX_WORD_LEN)
-    remaining_blocks: list[str] = Field(default_factory=list)
+    all_blocks: list[str] = Field(default_factory=list)
+    chosen_words: list[str] = Field(default_factory=list)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -192,16 +219,14 @@ def _get_builder(blocks: list[str]) -> BlockPhraseBuilder:
 @app.post("/builder/words")
 @limiter.limit("20/minute")
 def builder_words(body: BuilderWordsRequest, request: Request):
-    remaining = validate_blocks(body.remaining_blocks)
-    custom_builder = _get_builder(remaining)
+    all_blocks = validate_blocks(body.all_blocks)
+    chosen = [w.strip().lower() for w in body.chosen_words if w.strip()]
+    context_phrase = ' '.join(chosen)
+    custom_builder = _get_builder(all_blocks)
 
     def _run():
-        results = custom_builder.find_possible_words(common_only=body.common_only)
-        return {
-            "remainingBlocks": remaining,
-            "phraseWords": [],
-            "availableWords": format_word_results(results),
-        }
+        results = custom_builder.find_words_for_context(context_phrase, common_only=body.common_only)
+        return {"availableWords": format_word_results(results)}
 
     return run_with_timeout(_run, TIMEOUT_BUILDER)
 
@@ -213,10 +238,13 @@ def builder_check(body: BuilderCheckRequest, request: Request):
     if not word or not word.replace(" ", "").isalpha():
         raise HTTPException(status_code=422, detail="Word must contain only letters.")
 
-    remaining = validate_blocks(body.remaining_blocks)
+    all_blocks = validate_blocks(body.all_blocks)
+    chosen = [w.strip().lower() for w in body.chosen_words if w.strip()]
+    custom_builder = _get_builder(all_blocks)
 
     def _run():
-        can_form, blocks_used = match_word_to_blocks(word, remaining)
-        return {"canForm": can_form, "blocksUsed": blocks_used}
+        combined = ' '.join(chosen + [word])
+        can_form, _, _ = custom_builder.can_form_phrase(combined)
+        return {"canForm": can_form, "blocksUsed": []}
 
     return run_with_timeout(_run, TIMEOUT_BUILDER)
