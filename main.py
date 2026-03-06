@@ -316,11 +316,12 @@ class BlockPhraseBuilder:
         if not words:
             return []
 
-        # Tag every letter with its word index
-        tagged: list[tuple[str, int]] = []
+        # Tag every letter with its word index and position within the word
+        # orig_idx is its index in this list (stable across sorting)
+        tagged: list[tuple[str, int, int]] = []  # (letter, word_idx, pos_in_word)
         for w_idx, word in enumerate(words):
-            for ch in word:
-                tagged.append((ch, w_idx))
+            for pos, ch in enumerate(word):
+                tagged.append((ch, w_idx, pos))
 
         all_indices = list(range(len(self.blocks)))
 
@@ -336,16 +337,16 @@ class BlockPhraseBuilder:
                 return None
             letter_to_blocks[letter] = candidates
 
-        # Sort by constraint (fewest options first)
-        tagged_sorted = sorted(tagged, key=lambda t: len(letter_to_blocks[t[0]]))
+        # Sort by constraint (fewest options first), preserving original index
+        indexed = sorted(enumerate(tagged), key=lambda x: len(letter_to_blocks[x[1][0]]))
 
         used: set[int] = set()
-        assignment: list[int] = []  # parallel to tagged_sorted
+        assignment: list[int] = []  # parallel to indexed (sorted order)
 
         def backtrack(idx: int) -> bool:
-            if idx == len(tagged_sorted):
+            if idx == len(indexed):
                 return True
-            letter = tagged_sorted[idx][0]
+            letter = indexed[idx][1][0]
             for block_idx in letter_to_blocks[letter]:
                 if block_idx not in used:
                     used.add(block_idx)
@@ -359,14 +360,24 @@ class BlockPhraseBuilder:
         if not backtrack(0):
             return None
 
-        # Group by word
+        # Map orig_idx -> block_idx
+        orig_to_block: dict[int, int] = {
+            orig_idx: assignment[si]
+            for si, (orig_idx, _) in enumerate(indexed)
+        }
+
+        # Group by word, sorted by pos_in_word so blocks appear in letter order
         per_word: list[list[dict]] = [[] for _ in words]
-        for i, (letter, w_idx) in enumerate(tagged_sorted):
-            per_word[w_idx].append({
-                'block': self.blocks[assignment[i]],
+        for orig_idx, (letter, w_idx, pos) in enumerate(tagged):
+            per_word[w_idx].append((pos, {
+                'block': self.blocks[orig_to_block[orig_idx]],
                 'usedLetter': letter,
-            })
-        return per_word
+            }))
+
+        return [
+            [item for _, item in sorted(word_blocks, key=lambda x: x[0])]
+            for word_blocks in per_word
+        ]
 
     def find_words_for_context(self, context_phrase='', common_only=True):
         """
