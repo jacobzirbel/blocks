@@ -10,8 +10,8 @@ import {
 } from '../models/blocks.models';
 import { BlockConfigService } from './block-config.service';
 
-const API_BASE = 'http://localhost:8000';
-// const API_BASE = '/api';
+// const API_BASE = 'http://localhost:8000';
+const API_BASE = '/api';
 
 const MOCK_WORDS_BY_COUNT: WordsByBlockCount = {
   2: [
