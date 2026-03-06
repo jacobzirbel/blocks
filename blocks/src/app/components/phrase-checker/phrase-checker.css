@@ -47,3 +47,8 @@ button:disabled { background: #aaa; cursor: default; }
   border-radius: 4px;
   font-size: 0.85rem;
 }
+
+@media (max-width: 480px) {
+  .input-row { flex-direction: column; }
+  button { width: 100%; }
+}

@@ -1,8 +1,9 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   background: #1565c0;
   color: white;
 
@@ -16,7 +17,7 @@
   a {
     color: rgba(255, 255, 255, 0.8);
     text-decoration: none;
-    padding: 0.35rem 0.75rem;
+    padding: 0.35rem 0.6rem;
     border-radius: 6px;
     font-size: 0.9rem;
     transition: background 0.15s;
@@ -37,4 +38,10 @@
   max-width: 900px;
   margin: 0 auto;
   padding: 1rem;
+}
+
+@media (max-width: 480px) {
+  .content {
+    padding: 0.5rem;
+  }
 }

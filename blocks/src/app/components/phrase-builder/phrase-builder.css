@@ -68,3 +68,13 @@ h2 { margin: 0 0 0.5rem; }
   background: #e8f5e9; border: 2px solid #388e3c;
   border-radius: 8px; padding: 0.75rem 1rem; font-size: 1.1rem;
 }
+
+@media (max-width: 600px) {
+  .phrase-bar { flex-wrap: wrap; }
+  .search-input { width: 100%; }
+  .custom-word-input { width: 100%; }
+  .custom-word-bar { flex-direction: column; align-items: stretch; }
+  .add-btn { width: 100%; }
+  .controls-bar { flex-direction: column; align-items: stretch; }
+  .count { margin-left: 0; }
+}
