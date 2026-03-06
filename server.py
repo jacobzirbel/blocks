@@ -20,14 +20,14 @@ from main import BlockPhraseBuilder
 
 # ── Limits ─────────────────────────────────────────────────────────────────────
 MAX_BLOCKS = 30           # max blocks accepted in a request
-MAX_LETTERS_PER_BLOCK = 12
+MAX_LETTERS_PER_BLOCK = 6
 MAX_PHRASE_LEN = 200
 MAX_WORD_LEN = 50
 
 TIMEOUT_CHECK = 10        # seconds — phrase checking
-TIMEOUT_WORDS = 60        # seconds — word finding (cached after first call)
-TIMEOUT_PHRASES = 90      # seconds — phrase finding (very heavy)
-TIMEOUT_BUILDER = 15      # seconds — interactive builder ops
+TIMEOUT_WORDS = 60 * 5        # seconds — word finding (cached after first call)
+TIMEOUT_PHRASES = 90  * 5    # seconds — phrase finding (very heavy)
+TIMEOUT_BUILDER = 60  * 5    # seconds — interactive builder ops
 
 # ── App ────────────────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
@@ -80,22 +80,23 @@ def validate_blocks(blocks: list[str]) -> list[str]:
     return result
 
 
-def blocks_to_indices(block_strings: list[str]) -> list[int]:
+def match_word_to_blocks(word: str, blocks: list[str]) -> tuple[bool, list[str]]:
     """
-    Map a list of block strings (e.g. from remaining_blocks in a request) to
-    the corresponding indices in builder.blocks, respecting duplicates.
-    Blocks not found in the server's loaded set are silently skipped.
+    Check if a word can be formed from a list of block strings.
+    Uses most-constrained-first greedy matching.
+    Returns (can_form, list_of_block_strings_used).
     """
-    available: dict[str, list[int]] = {}
-    for i, b in enumerate(builder.blocks):
-        available.setdefault(b, []).append(i)
-    # Consume one index per occurrence
-    remaining = {k: list(v) for k, v in available.items()}
-    indices = []
-    for b in block_strings:
-        if b in remaining and remaining[b]:
-            indices.append(remaining[b].pop(0))
-    return indices
+    letters = list(word.lower())
+    letters.sort(key=lambda l: sum(1 for b in blocks if l in b))
+    available = [{"letters": b, "used": False} for b in blocks]
+    used: list[str] = []
+    for letter in letters:
+        block = next((b for b in available if not b["used"] and letter in b["letters"]), None)
+        if not block:
+            return False, []
+        block["used"] = True
+        used.append(block["letters"])
+    return True, used
 
 
 def format_word_results(results: dict) -> list[dict]:
@@ -180,13 +181,10 @@ def find_phrases(request: Request):
 @limiter.limit("20/minute")
 def builder_words(body: BuilderWordsRequest, request: Request):
     remaining = validate_blocks(body.remaining_blocks)
-    indices = blocks_to_indices(remaining)
+    custom_builder = BlockPhraseBuilder.from_blocks(remaining)
 
     def _run():
-        results = builder.find_possible_words(
-            common_only=body.common_only,
-            block_indices=indices,
-        )
+        results = custom_builder.find_possible_words(common_only=body.common_only)
         return {
             "remainingBlocks": remaining,
             "phraseWords": [],
@@ -204,13 +202,9 @@ def builder_check(body: BuilderCheckRequest, request: Request):
         raise HTTPException(status_code=422, detail="Word must contain only letters.")
 
     remaining = validate_blocks(body.remaining_blocks)
-    indices = blocks_to_indices(remaining)
 
     def _run():
-        indices_used, blocks_used = builder.find_blocks_for_word(word, indices)
-        return {
-            "canForm": indices_used is not None,
-            "blocksUsed": blocks_used or [],
-        }
+        can_form, blocks_used = match_word_to_blocks(word, remaining)
+        return {"canForm": can_form, "blocksUsed": blocks_used}
 
     return run_with_timeout(_run, TIMEOUT_BUILDER)

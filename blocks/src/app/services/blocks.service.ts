@@ -40,7 +40,7 @@ const MOCK_PHRASES = ['joy wren', 'fly worn', 'nor ply', 'wry on'];
 export class BlocksService {
   private readonly http = inject(HttpClient);
   private readonly blockConfig = inject(BlockConfigService);
-  private useMocks = true; // flip to false once server is running
+  private useMocks = false; // flip to false once server is running
 
   getBlocks(): Observable<BlocksInfo> {
     if (this.useMocks) {

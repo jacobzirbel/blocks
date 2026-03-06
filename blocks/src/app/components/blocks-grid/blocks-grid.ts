@@ -1,8 +1,6 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BlocksService } from '../../services/blocks.service';
 import { BlockConfigService, BlockPreset } from '../../services/block-config.service';
-import { Block } from '../../models/blocks.models';
 
 @Component({
   selector: 'app-blocks-grid',
@@ -15,10 +13,10 @@ import { Block } from '../../models/blocks.models';
       <div class="config-panel">
         <div class="preset-row">
           <label class="radio-label">
-            <input type="radio" name="preset" value="standard"
+            <input type="radio" name="preset" value="cabin"
               [ngModel]="blockConfig.preset()"
               (ngModelChange)="onPresetChange($event)" />
-            Standard
+            Cabin
           </label>
           <label class="radio-label">
             <input type="radio" name="preset" value="goodonly"
@@ -26,11 +24,19 @@ import { Block } from '../../models/blocks.models';
               (ngModelChange)="onPresetChange($event)" />
             Good Only
           </label>
+          @if (blockConfig.savedCustomBlocks().length > 0) {
+            <label class="radio-label">
+              <input type="radio" name="preset" value="saved"
+                [ngModel]="blockConfig.preset()"
+                (ngModelChange)="onPresetChange($event)" />
+              Custom
+            </label>
+          }
           <label class="radio-label">
             <input type="radio" name="preset" value="custom"
               [ngModel]="blockConfig.preset()"
               (ngModelChange)="onPresetChange($event)" />
-            Custom
+            {{ blockConfig.savedCustomBlocks().length > 0 ? 'Edit custom…' : 'Custom' }}
           </label>
         </div>
 
@@ -48,25 +54,19 @@ import { Block } from '../../models/blocks.models';
         }
       </div>
 
-      @if (loading()) {
-        <p class="status">Loading blocks...</p>
-      } @else if (error()) {
-        <p class="status error">{{ error() }}</p>
-      } @else {
-        <p class="summary">{{ blocks().length }} blocks &bull; {{ totalLetters() }} total letters</p>
-        <div class="grid">
-          @for (block of blocks(); track block.letters) {
-            <div class="block-card">
-              <div class="block-letters">
-                @for (letter of block.letters.split(''); track $index) {
-                  <span class="letter">{{ letter.toUpperCase() }}</span>
-                }
-              </div>
-              <div class="block-label">{{ block.letters }}</div>
+      <p class="summary">{{ blocks().length }} blocks &bull; {{ totalLetters() }} total letters</p>
+      <div class="grid">
+        @for (block of blocks(); track block.letters) {
+          <div class="block-card">
+            <div class="block-letters">
+              @for (letter of block.letters.split(''); track $index) {
+                <span class="letter">{{ letter.toUpperCase() }}</span>
+              }
             </div>
-          }
-        </div>
-      }
+            <div class="block-label">{{ block.letters }}</div>
+          </div>
+        }
+      </div>
     </div>
   `,
   styles: [`
@@ -110,26 +110,17 @@ import { Block } from '../../models/blocks.models';
   `],
 })
 export class BlocksGrid {
-  private readonly service = inject(BlocksService);
   readonly blockConfig = inject(BlockConfigService);
 
-  blocks = signal<Block[]>([]);
-  totalLetters = signal(0);
-  loading = signal(false);
-  error = signal<string | null>(null);
+  readonly blocks = computed(() => this.blockConfig.blocks().map(l => ({ letters: l })));
+  readonly totalLetters = computed(() => this.blockConfig.blocks().reduce((s, b) => s + b.length, 0));
   customText = signal('');
 
-  constructor() {
-    effect(() => {
-      // Re-load whenever the active block set changes
-      this.blockConfig.blocks();
-      this.loadBlocks();
-    });
-  }
-
   onPresetChange(preset: BlockPreset) {
-    if (preset !== 'custom') {
+    if (preset === 'cabin' || preset === 'goodonly') {
       this.blockConfig.usePreset(preset);
+    } else if (preset === 'saved') {
+      this.blockConfig.useSaved();
     } else {
       this.blockConfig.preset.set('custom');
     }
@@ -137,20 +128,5 @@ export class BlocksGrid {
 
   applyCustom() {
     this.blockConfig.useCustom(this.customText());
-  }
-
-  private loadBlocks() {
-    this.loading.set(true);
-    this.service.getBlocks().subscribe({
-      next: info => {
-        this.blocks.set(info.blocks);
-        this.totalLetters.set(info.totalLetters);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Failed to load blocks.');
-        this.loading.set(false);
-      },
-    });
   }
 }

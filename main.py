@@ -51,6 +51,15 @@ class BlockPhraseBuilder:
         self.available_letters = self._get_available_letters()
         self._word_cache = {}  # keyed by (frozenset(block_indices), common_only)
 
+    @classmethod
+    def from_blocks(cls, blocks: list[str]) -> "BlockPhraseBuilder":
+        """Initialize with a list of block strings instead of a file."""
+        instance = cls.__new__(cls)
+        instance.blocks = [b.strip().lower() for b in blocks if b.strip()]
+        instance.available_letters = instance._get_available_letters()
+        instance._word_cache = {}
+        return instance
+
     def load_blocks(self, blocks_file):
         """Load blocks from file, filtering out empty blocks."""
         blocks = []
