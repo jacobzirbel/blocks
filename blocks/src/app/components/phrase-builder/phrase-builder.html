@@ -74,6 +74,24 @@
   @if (phraseWords().length > 0) {
     <div class="final">
       <strong>Final phrase:</strong> "{{ phraseWords().join(' ') }}"
+      <div class="final-blocks">
+        @for (picked of pickedWords(); track $index) {
+          <div class="final-word-row">
+            <span class="final-word-label">{{ picked.word }}</span>
+            @if (picked.blockAssignments.length > 0) {
+              <div class="final-word-blocks">
+                @for (a of picked.blockAssignments; track $index) {
+                  <span class="final-block-chip">
+                    @for (letter of a.block.split(''); track $index) {
+                      <span [class.used-letter]="letter === a.usedLetter">{{ letter }}</span>
+                    }
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
     </div>
   }
 </div>

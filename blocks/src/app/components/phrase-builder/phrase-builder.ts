@@ -7,6 +7,11 @@ import { BlockConfigService } from '../../services/block-config.service';
 import { WordResult } from '../../models/blocks.models';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
+interface PickedWord {
+  word: string;
+  /** One entry per block used: the block string and which letter it contributed. */
+  blockAssignments: Array<{ block: string; usedLetter: string }>;
+}
 
 @Component({
   selector: 'app-phrase-builder',
@@ -21,6 +26,7 @@ export class PhraseBuilder {
 
   allBlocks = signal<string[]>([...this.blockConfig.blocks()]);
   phraseWords = signal<string[]>([]);
+  pickedWords = signal<PickedWord[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
   loadError = signal<string | null>(null);
@@ -75,6 +81,10 @@ export class PhraseBuilder {
 
   pickWord(item: WordResult) {
     this.phraseWords.update(w => [...w, item.word]);
+    this.pickedWords.update(pw => [...pw, {
+      word: item.word,
+      blockAssignments: this.assignLetters(item.word, item.blocks),
+    }]);
     this.searchTerm.set('');
     this.loadWords();
   }
@@ -90,7 +100,9 @@ export class PhraseBuilder {
       next: result => {
         this.checkingCustomWord.set(false);
         if (result.canForm) {
-          this.phraseWords.update(w => [...w, word.toLowerCase()]);
+          const lower = word.toLowerCase();
+          this.phraseWords.update(w => [...w, lower]);
+          this.pickedWords.update(pw => [...pw, { word: lower, blockAssignments: [] }]);
           this.customWord.set('');
           this.loadWords();
         } else {
@@ -107,10 +119,38 @@ export class PhraseBuilder {
   reset() {
     this.allBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
+    this.pickedWords.set([]);
     this.searchTerm.set('');
     this.customWord.set('');
     this.customWordError.set(null);
     this.loadError.set(null);
     this.loadWords();
+  }
+
+  /**
+   * Assign each letter of the word to one block from the provided list.
+   * Uses constraint-ordered greedy (most constrained letters first).
+   */
+  private assignLetters(word: string, blocks: string[]): Array<{ block: string; usedLetter: string }> {
+    const letters = word.split('');
+    const used = new Set<number>();
+    const assignment: Record<number, string> = {};
+
+    // Sort letters by how many blocks can provide them (fewest first)
+    const sorted = [...letters].sort(
+      (a, b) =>
+        blocks.filter(bl => bl.includes(a)).length -
+        blocks.filter(bl => bl.includes(b)).length
+    );
+
+    for (const letter of sorted) {
+      const idx = blocks.findIndex((bl, i) => !used.has(i) && bl.includes(letter));
+      if (idx !== -1) {
+        used.add(idx);
+        assignment[idx] = letter;
+      }
+    }
+
+    return blocks.map((block, i) => ({ block, usedLetter: assignment[i] ?? '' }));
   }
 }

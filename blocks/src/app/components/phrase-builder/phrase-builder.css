@@ -68,6 +68,29 @@ h2 { margin: 0 0 0.5rem; }
   background: #e8f5e9; border: 2px solid #388e3c;
   border-radius: 8px; padding: 0.75rem 1rem; font-size: 1.1rem;
 }
+.final-blocks {
+  margin-top: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.final-word-row {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+}
+.final-word-label {
+  font-weight: 700; font-size: 0.95rem; min-width: 3rem;
+  color: #1b5e20;
+}
+.final-word-blocks {
+  display: flex; gap: 0.3rem; flex-wrap: wrap;
+}
+.final-block-chip {
+  background: #1976d2; color: white;
+  padding: 0.2rem 0.5rem; border-radius: 4px;
+  font-size: 0.85rem; font-family: monospace; letter-spacing: 0.05em;
+}
+.final-block-chip .used-letter {
+  font-weight: 900; font-size: 1.05em;
+  text-decoration: underline; text-underline-offset: 2px;
+}
 
 @media (max-width: 600px) {
   .phrase-bar { flex-wrap: wrap; }
