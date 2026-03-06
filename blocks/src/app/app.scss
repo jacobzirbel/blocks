@@ -1,0 +1,40 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #1565c0;
+  color: white;
+
+  .nav-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-right: auto;
+    letter-spacing: 0.02em;
+  }
+
+  a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+    }
+
+    &.active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+  }
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem;
+}
