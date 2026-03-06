@@ -4,6 +4,7 @@ Block Phrase Builder
 A tool to create phrases using blocks with letters on them.
 Each block can only be used once per phrase.
 """
+from __future__ import annotations
 
 from itertools import combinations, permutations
 from collections import Counter
