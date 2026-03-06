@@ -97,15 +97,11 @@ class BlockPhraseBuilder:
             message += f"Blocks used: {best_blocks}\n"
         else:
             message += f"✗ Cannot be formed.\n"
-            # Calculate which letters are missing using bipartite matching logic
-            # For each letter, count how many blocks can provide it
-            missing = {}
-            for letter, needed_count in phrase_letters.items():
-                blocks_with_letter = sum(1 for block in self.blocks if letter in block)
-                if blocks_with_letter < needed_count:
-                    missing[letter] = needed_count - blocks_with_letter
+            missing = self._compute_missing_letters(phrase_letters)
             if missing:
                 message += f"Missing letters: {dict(missing)}\n"
+            else:
+                message += "Cannot be formed due to block conflicts (letters compete for the same blocks).\n"
 
         return found, best_blocks if found else [], message
 
@@ -182,6 +178,48 @@ class BlockPhraseBuilder:
             return False
 
         return backtrack(0, set())
+
+    def _compute_missing_letters(self, phrase_letters):
+        """
+        Compute which letters are genuinely missing by running bipartite matching
+        and recording which letter occurrences could not be assigned a block.
+        Returns a dict of {letter: deficit_count}.
+        """
+        letters_to_match = []
+        for letter, count in phrase_letters.items():
+            letters_to_match.extend([letter] * count)
+
+        all_indices = list(range(len(self.blocks)))
+        letter_to_blocks = {
+            letter: [i for i in all_indices if letter in self.blocks[i]]
+            for letter in set(letters_to_match)
+        }
+
+        # Sort most-constrained letters first so greedy maximizes matches
+        letters_to_match.sort(key=lambda l: len(letter_to_blocks.get(l, [])))
+
+        matched = [False] * len(letters_to_match)
+
+        def backtrack(letter_idx, used_blocks):
+            if letter_idx == len(letters_to_match):
+                return
+            letter = letters_to_match[letter_idx]
+            for block_idx in letter_to_blocks.get(letter, []):
+                if block_idx not in used_blocks:
+                    used_blocks.add(block_idx)
+                    matched[letter_idx] = True
+                    backtrack(letter_idx + 1, used_blocks)
+                    return
+            # No block available; leave matched[letter_idx] = False
+            backtrack(letter_idx + 1, used_blocks)
+
+        backtrack(0, set())
+
+        missing: dict[str, int] = {}
+        for i, letter in enumerate(letters_to_match):
+            if not matched[i]:
+                missing[letter] = missing.get(letter, 0) + 1
+        return missing
 
     def find_blocks_for_word(self, word, block_indices):
         """

@@ -84,6 +84,34 @@ export class BlocksService {
     return this.http.get<string[]>(`${API_BASE}/phrases`);
   }
 
+  checkBuilderWord(word: string, remainingBlocks: string[]): Observable<{ canForm: boolean; blocksUsed: string[] }> {
+    if (this.useMocks) {
+      return of(this.mockCanForm(word, remainingBlocks)).pipe(delay(100));
+    }
+    return this.http.post<{ canForm: boolean; blocksUsed: string[] }>(`${API_BASE}/builder/check`, {
+      word,
+      remaining_blocks: remainingBlocks,
+    });
+  }
+
+  private mockCanForm(word: string, blocks: string[]): { canForm: boolean; blocksUsed: string[] } {
+    const letters = word.replace(/\s/g, '').toLowerCase().split('');
+    // Sort most-constrained (fewest available blocks) first to maximize valid assignments
+    const countFor = (l: string) => blocks.filter(b => b.includes(l)).length;
+    letters.sort((a, b) => countFor(a) - countFor(b));
+
+    const available = blocks.map(b => ({ letters: b, used: false }));
+    const blocksUsed: string[] = [];
+
+    for (const letter of letters) {
+      const block = available.find(b => !b.used && b.letters.includes(letter));
+      if (!block) return { canForm: false, blocksUsed: [] };
+      block.used = true;
+      blocksUsed.push(block.letters);
+    }
+    return { canForm: true, blocksUsed };
+  }
+
   getBuilderWords(remainingBlocks: string[], commonOnly = true): Observable<PhraseBuilderState> {
     if (this.useMocks) {
       const words = Object.values(MOCK_WORDS_BY_COUNT)

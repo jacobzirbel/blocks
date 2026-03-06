@@ -72,6 +72,24 @@ import { WordResult } from '../../models/blocks.models';
         }
       }
 
+      <div class="custom-word-bar">
+        <input
+          class="custom-word-input"
+          type="text"
+          placeholder="Enter any word (e.g. a proper noun)…"
+          [ngModel]="customWord()"
+          (ngModelChange)="customWord.set($event)"
+          (keydown.enter)="addCustomWord()"
+          [disabled]="checkingCustomWord()"
+        />
+        <button class="add-btn" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
+          Add
+        </button>
+        @if (customWordError()) {
+          <span class="custom-error">{{ customWordError() }}</span>
+        }
+      </div>
+
       @if (phraseWords().length > 0) {
         <div class="final">
           <strong>Final phrase:</strong> "{{ phraseWords().join(' ') }}"
@@ -141,6 +159,20 @@ import { WordResult } from '../../models/blocks.models';
       padding: 0.1rem 0.4rem; border-radius: 3px;
       font-size: 0.7rem; font-family: monospace;
     }
+    .custom-word-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 1.5rem; flex-wrap: wrap;
+    }
+    .custom-word-input {
+      padding: 0.4rem 0.75rem; border: 1px solid #ccc;
+      border-radius: 6px; font-size: 0.95rem; width: 260px;
+    }
+    .add-btn {
+      padding: 0.4rem 1rem; background: #388e3c; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    .add-btn:disabled { background: #aaa; cursor: default; }
+    .custom-error { color: #d32f2f; font-size: 0.85rem; }
     .final {
       background: #e8f5e9; border: 2px solid #388e3c;
       border-radius: 8px; padding: 0.75rem 1rem;
@@ -158,6 +190,9 @@ export class PhraseBuilder {
   loading = signal(false);
   searchTerm = signal('');
   commonOnly = true;
+  customWord = signal('');
+  customWordError = signal<string | null>(null);
+  checkingCustomWord = signal(false);
 
   filteredWords = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
@@ -198,10 +233,45 @@ export class PhraseBuilder {
     this.loadWords();
   }
 
+  addCustomWord() {
+    const word = this.customWord().trim();
+    if (!word) return;
+
+    this.checkingCustomWord.set(true);
+    this.customWordError.set(null);
+
+    this.service.checkBuilderWord(word, this.remainingBlocks()).subscribe({
+      next: result => {
+        this.checkingCustomWord.set(false);
+        if (result.canForm) {
+          this.phraseWords.update(w => [...w, word.toLowerCase()]);
+          this.remainingBlocks.update(rb => {
+            const updated = [...rb];
+            for (const block of result.blocksUsed) {
+              const idx = updated.indexOf(block);
+              if (idx !== -1) updated.splice(idx, 1);
+            }
+            return updated;
+          });
+          this.customWord.set('');
+          this.loadWords();
+        } else {
+          this.customWordError.set(`"${word}" cannot be formed with the remaining blocks.`);
+        }
+      },
+      error: () => {
+        this.checkingCustomWord.set(false);
+        this.customWordError.set('Error checking word.');
+      },
+    });
+  }
+
   reset() {
     this.remainingBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
     this.searchTerm.set('');
+    this.customWord.set('');
+    this.customWordError.set(null);
     this.loadWords();
   }
 }
