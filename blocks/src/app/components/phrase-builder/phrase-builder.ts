@@ -172,8 +172,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     .status { color: #666; }
     .error { color: #d32f2f; }
     .word-list {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-      margin-bottom: 1.5rem; justify-content: flex-start; align-content: flex-start;
+      display: flex; flex-direction: column; gap: 0.5rem;
+      margin-bottom: 1.5rem; align-items: flex-start;
     }
     .word-btn {
       padding: 0.5rem 0.75rem;
