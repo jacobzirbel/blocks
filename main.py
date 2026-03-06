@@ -6,7 +6,7 @@ Each block can only be used once per phrase.
 """
 from __future__ import annotations
 
-from itertools import combinations, permutations
+from itertools import combinations
 from collections import Counter
 
 # Try to load NLTK word list
@@ -79,29 +79,19 @@ class BlockPhraseBuilder:
     def can_form_phrase(self, phrase):
         """
         Check if a phrase can be formed using the blocks.
-        Uses proper bipartite matching to ensure correctness.
+        Uses bipartite matching against all blocks at once (no subset enumeration).
         Returns (True/False, list of blocks used, message)
         """
-        # Normalize the phrase
         phrase_clean = phrase.replace(" ", "").lower()
         phrase_letters = Counter(phrase_clean)
 
-        # Try all combinations of blocks to find if any can form this phrase
-        found = False
-        best_blocks = None
-
-        # Try increasing subset sizes to find a minimal solution
-        for size in range(1, len(self.blocks) + 1):
-            if found:
-                break
-            for block_combo in combinations(range(len(self.blocks)), size):
-                if self._can_form_with_blocks_matching(phrase_clean, block_combo):
-                    best_blocks = [self.blocks[i] for i in block_combo]
-                    found = True
-                    break
+        all_indices = list(range(len(self.blocks)))
+        found, used_indices = self._can_form_with_blocks_matching(
+            phrase_clean, all_indices, return_assignment=True
+        )
+        best_blocks = [self.blocks[i] for i in sorted(used_indices)] if found else []
 
         message = f"Phrase: '{phrase}'\n"
-
         if found:
             message += f"✓ Can be formed!\n"
             message += f"Blocks used: {best_blocks}\n"
@@ -113,7 +103,7 @@ class BlockPhraseBuilder:
             else:
                 message += "Cannot be formed due to block conflicts (letters compete for the same blocks).\n"
 
-        return found, best_blocks if found else [], message
+        return found, best_blocks, message
 
     def find_phrases_from_blocks(self, num_blocks=None):
         """
@@ -139,60 +129,62 @@ class BlockPhraseBuilder:
         print(f"\nTotal blocks: {len(self.blocks)}")
         print(f"Total letters available: {sum(len(b) for b in self.blocks)}")
 
-    def _can_form_with_blocks_matching(self, word, block_indices):
+    def _can_form_with_blocks_matching(self, word, block_indices, return_assignment=False):
         """
-        Check if a word can be formed using specific blocks using bipartite matching.
+        Check if a word can be formed using specific blocks via bipartite matching.
         Each letter occurrence must be matched to exactly one block containing it.
-        Each block can only be used once (not reused for multiple letters).
-        Uses backtracking to find a valid assignment.
+        Each block can only be used once.
+
+        If return_assignment is True, returns (bool, set_of_used_block_indices)
+        instead of just bool.
         """
         word_lower = word.lower()
         word_letters = Counter(word_lower)
 
-        # Expand to individual letters: if 's' appears twice, we need two matches
         letters_to_match = []
         for letter, count in word_letters.items():
             letters_to_match.extend([letter] * count)
 
-        # Early check: if we need more letter instances than we have blocks, it's impossible
         if len(letters_to_match) > len(block_indices):
-            return False
+            return (False, set()) if return_assignment else False
 
-        # Build a mapping: for each unique letter, which blocks can provide it
+        # Build adjacency: for each unique letter, which blocks can provide it
         letter_to_blocks = {}
         for letter in set(letters_to_match):
             letter_to_blocks[letter] = []
             for idx in block_indices:
                 if letter in self.blocks[idx]:
                     letter_to_blocks[letter].append(idx)
-
-            # If any letter has no source blocks, fail immediately
             if not letter_to_blocks[letter]:
-                return False
+                return (False, set()) if return_assignment else False
 
-        # Use backtracking to find a valid assignment
-        def backtrack(letter_idx, used_blocks):
+        # Sort most-constrained letters first for faster pruning
+        letters_to_match.sort(key=lambda l: len(letter_to_blocks[l]))
+
+        used_blocks = set()
+
+        def backtrack(letter_idx):
             if letter_idx == len(letters_to_match):
                 return True
-
             letter = letters_to_match[letter_idx]
-            # Try each block that can provide this letter
             for block_idx in letter_to_blocks[letter]:
                 if block_idx not in used_blocks:
-                    # Try assigning this letter to this block
                     used_blocks.add(block_idx)
-                    if backtrack(letter_idx + 1, used_blocks):
+                    if backtrack(letter_idx + 1):
                         return True
                     used_blocks.remove(block_idx)
-
             return False
 
-        return backtrack(0, set())
+        result = backtrack(0)
+        if return_assignment:
+            return result, set(used_blocks) if result else set()
+        return result
 
     def _compute_missing_letters(self, phrase_letters):
         """
-        Compute which letters are genuinely missing by running bipartite matching
-        and recording which letter occurrences could not be assigned a block.
+        Compute which letters are genuinely missing using augmenting-path
+        maximum bipartite matching to find the true maximum, then report
+        unmatched letter occurrences.
         Returns a dict of {letter: deficit_count}.
         """
         letters_to_match = []
@@ -200,65 +192,57 @@ class BlockPhraseBuilder:
             letters_to_match.extend([letter] * count)
 
         all_indices = list(range(len(self.blocks)))
-        letter_to_blocks = {
-            letter: [i for i in all_indices if letter in self.blocks[i]]
-            for letter in set(letters_to_match)
-        }
+        # Adjacency: letter position -> list of block indices that contain it
+        adj = []
+        for letter in letters_to_match:
+            adj.append([i for i in all_indices if letter in self.blocks[i]])
 
-        # Sort most-constrained letters first so greedy maximizes matches
-        letters_to_match.sort(key=lambda l: len(letter_to_blocks.get(l, [])))
+        # Hopcroft-Karp-style augmenting path matching
+        # match_block[block] = letter position matched to it (or -1)
+        match_block = {i: -1 for i in all_indices}
+        # match_letter[pos] = block matched to it (or -1)
+        match_letter = [-1] * len(letters_to_match)
 
-        matched = [False] * len(letters_to_match)
+        def try_augment(u, visited):
+            for v in adj[u]:
+                if v in visited:
+                    continue
+                visited.add(v)
+                if match_block[v] == -1 or try_augment(match_block[v], visited):
+                    match_letter[u] = v
+                    match_block[v] = u
+                    return True
+            return False
 
-        def backtrack(letter_idx, used_blocks):
-            if letter_idx == len(letters_to_match):
-                return
-            letter = letters_to_match[letter_idx]
-            for block_idx in letter_to_blocks.get(letter, []):
-                if block_idx not in used_blocks:
-                    used_blocks.add(block_idx)
-                    matched[letter_idx] = True
-                    backtrack(letter_idx + 1, used_blocks)
-                    return
-            # No block available; leave matched[letter_idx] = False
-            backtrack(letter_idx + 1, used_blocks)
-
-        backtrack(0, set())
+        for u in range(len(letters_to_match)):
+            try_augment(u, set())
 
         missing: dict[str, int] = {}
         for i, letter in enumerate(letters_to_match):
-            if not matched[i]:
+            if match_letter[i] == -1:
                 missing[letter] = missing.get(letter, 0) + 1
         return missing
 
     def find_blocks_for_word(self, word, block_indices):
         """
-        Find the minimal set of block indices needed to form a word.
-        Among all minimum-size valid assignments, picks the one that maximises
-        total letters remaining (preserving the most options for future words).
+        Find the block indices needed to form a word.
+        The matching always uses exactly len(word) blocks (one per letter),
+        which is the minimum possible.
         Returns (block_indices_used, block_strings) or (None, None) if impossible.
         """
         word_clean = word.replace(" ", "").lower()
-        block_index_set = set(block_indices)
-        for size in range(1, len(block_indices) + 1):
-            best_combo = None
-            best_score = -1
-            for combo in combinations(block_indices, size):
-                if self._can_form_with_blocks_matching(word_clean, combo):
-                    remaining_letters = sum(
-                        len(self.blocks[i]) for i in block_index_set - set(combo)
-                    )
-                    if remaining_letters > best_score:
-                        best_score = remaining_letters
-                        best_combo = combo
-            if best_combo is not None:
-                return list(best_combo), [self.blocks[i] for i in best_combo]
-        return None, None
+        matched, used_indices = self._can_form_with_blocks_matching(
+            word_clean, block_indices, return_assignment=True
+        )
+        if not matched:
+            return None, None
+        used_list = sorted(used_indices)
+        return used_list, [self.blocks[i] for i in used_list]
 
     def find_possible_words(self, min_blocks=1, max_blocks=None, common_only=True, block_indices=None):
         """
         Find all valid English words that can be formed from block combinations.
-        Uses proper bipartite matching to ensure correctness.
+        Checks each word once via bipartite matching (no subset enumeration).
 
         Args:
             min_blocks: Minimum blocks to use
@@ -279,50 +263,35 @@ class BlockPhraseBuilder:
         if max_blocks is None:
             max_blocks = len(available_indices)
 
-        # Choose word set based on common_only parameter
         word_set = COMMON_WORDS if common_only else NLTK_WORDS
 
-        results = {}
-        word_results = {}  # Track results by word to avoid duplicates
+        # Pre-compute available letters across all blocks for fast rejection
+        available_letter_set = set()
+        for idx in available_indices:
+            available_letter_set.update(self.blocks[idx])
 
-        # Iterate through each word once
+        results = {}
+
         for word in word_set:
             word_lower = word.lower()
-            word_letters = Counter(word_lower)
 
-            # Find which blocks can contribute to this word
-            candidates = []
-            for idx in available_indices:
-                if any(letter in self.blocks[idx] for letter in word_letters):
-                    candidates.append(idx)
-
-            # Try to build a minimal solution from candidates using matching
-            if not candidates:
+            # Fast rejection: skip if word uses letters not on any block
+            if not all(ch in available_letter_set for ch in word_lower):
                 continue
 
-            # Use a more efficient strategy: try increasing subset sizes
-            found = False
-            for size in range(min_blocks, min(len(candidates), max_blocks) + 1):
-                if found:
-                    break
-                for block_combo in combinations(candidates, size):
-                    if self._can_form_with_blocks_matching(word, block_combo):
-                        blocks_used = [self.blocks[i] for i in block_combo]
-                        if word not in word_results:
-                            word_results[word] = {
-                                'word': word,
-                                'blocks': blocks_used,
-                                'num_blocks': size
-                            }
-                        found = True
-                        break
+            word_len = len(word_lower)
+            if word_len < min_blocks or word_len > max_blocks:
+                continue
 
-        # Organize by number of blocks
-        for word, item in word_results.items():
-            num_blocks = item['num_blocks']
-            if num_blocks not in results:
-                results[num_blocks] = []
-            results[num_blocks].append(item)
+            # Single matching call — no subset enumeration needed
+            matched, used_indices = self._can_form_with_blocks_matching(
+                word_lower, available_indices, return_assignment=True
+            )
+            if matched:
+                num_blocks = len(used_indices)
+                blocks_used = [self.blocks[i] for i in sorted(used_indices)]
+                item = {'word': word_lower, 'blocks': blocks_used, 'num_blocks': num_blocks}
+                results.setdefault(num_blocks, []).append(item)
 
         # Sort each group by word length and alphabetically
         for num_blocks in results:

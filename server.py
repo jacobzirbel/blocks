@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from typing import List, Optional
+from typing import List
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -84,49 +84,6 @@ def validate_blocks(blocks: list[str]) -> list[str]:
         result.append(b)
     return result
 
-
-def _can_form_word(word: str, combo: list[str]) -> bool:
-    """Backtracking check: can the letters of word be covered by combo (one block per letter)?"""
-    letters = list(word.lower())
-    available = [{"letters": b, "used": False} for b in combo]
-
-    def bt(i: int) -> bool:
-        if i == len(letters):
-            return True
-        for b in available:
-            if not b["used"] and letters[i] in b["letters"]:
-                b["used"] = True
-                if bt(i + 1):
-                    return True
-                b["used"] = False
-        return False
-
-    return bt(0)
-
-
-def match_word_to_blocks(word: str, blocks: list[str]) -> tuple[bool, list[str]]:
-    """
-    Find the minimal block assignment for word that maximises letters remaining
-    (preserving the most options for future words).
-    Returns (can_form, list_of_block_strings_used).
-    """
-    from itertools import combinations as _combos
-    n = len(word)
-    for size in range(n, len(blocks) + 1):
-        best_used: Optional[List[str]] = None
-        best_score = -1
-        for combo_indices in _combos(range(len(blocks)), size):
-            combo = [blocks[i] for i in combo_indices]
-            if _can_form_word(word, combo):
-                remaining_letters = sum(
-                    len(blocks[i]) for i in range(len(blocks)) if i not in combo_indices
-                )
-                if remaining_letters > best_score:
-                    best_score = remaining_letters
-                    best_used = combo
-        if best_used is not None:
-            return True, best_used
-    return False, []
 
 
 def format_word_results(results: dict) -> list[dict]:
