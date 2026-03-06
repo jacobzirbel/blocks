@@ -1,0 +1,70 @@
+.builder-page { padding: 1.5rem; }
+h2 { margin: 0 0 0.5rem; }
+.hint { color: #666; margin-bottom: 1.5rem; }
+.phrase-bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #f5f5f5; border-radius: 8px; padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+.label { font-size: 0.85rem; color: #555; white-space: nowrap; }
+.empty { color: #aaa; font-size: 0.9rem; }
+.phrase { font-size: 1.1rem; flex: 1; }
+.reset-btn {
+  margin-left: auto; padding: 0.3rem 0.8rem;
+  background: #e53935; color: white; border: none;
+  border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+}
+.blocks-remaining {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.block-chip {
+  background: #1976d2; color: white;
+  padding: 0.2rem 0.6rem; border-radius: 4px;
+  font-size: 0.85rem; font-family: monospace;
+}
+.controls-bar {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 0.75rem; flex-wrap: wrap;
+}
+.search-input {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #ccc; border-radius: 6px;
+  font-size: 0.95rem; width: 220px;
+}
+.toggle-label {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.9rem; cursor: pointer;
+}
+.count { font-size: 0.85rem; color: #666; margin-left: auto; }
+.status { color: #666; }
+.error { color: #d32f2f; }
+.word-list {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  margin-bottom: 1.5rem; align-items: flex-start;
+}
+.word-btn {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #1976d2; background: white;
+  border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 1rem;
+  transition: background 0.15s;
+}
+.word-btn:hover { background: #e3f2fd; }
+.custom-word-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.custom-word-input {
+  padding: 0.4rem 0.75rem; border: 1px solid #ccc;
+  border-radius: 6px; font-size: 0.95rem; width: 260px;
+}
+.add-btn {
+  padding: 0.4rem 1rem; background: #388e3c; color: white;
+  border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+}
+.add-btn:disabled { background: #aaa; cursor: default; }
+.custom-error { color: #d32f2f; font-size: 0.85rem; }
+.final {
+  background: #e8f5e9; border: 2px solid #388e3c;
+  border-radius: 8px; padding: 0.75rem 1rem; font-size: 1.1rem;
+}

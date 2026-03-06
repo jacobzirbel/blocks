@@ -1,0 +1,79 @@
+<div class="builder-page">
+  <h2>Interactive Phrase Builder</h2>
+  <p class="hint">Pick a word, remove those blocks, and keep building your phrase.</p>
+
+  <div class="phrase-bar">
+    <span class="label">Phrase so far:</span>
+    @if (phraseWords().length === 0) {
+      <em class="empty">none yet</em>
+    } @else {
+      <strong class="phrase">{{ phraseWords().join(' ') }}</strong>
+    }
+    <button class="reset-btn" (click)="reset()">Reset</button>
+  </div>
+
+  <div class="blocks-remaining">
+    <span class="label">Blocks:</span>
+    @for (b of allBlocks(); track $index) {
+      <span class="block-chip">{{ b }}</span>
+    }
+  </div>
+
+  @if (loading()) {
+    <p class="status">Finding words...</p>
+  } @else if (loadError()) {
+    <p class="status error">{{ loadError() }}</p>
+  } @else if (availableWords().length === 0) {
+    <p class="status">No more words can be formed with remaining blocks.</p>
+  } @else {
+    <div class="controls-bar">
+      <input
+        class="search-input"
+        type="search"
+        placeholder="Search words…"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+      />
+      <label class="toggle-label">
+        <input type="checkbox" [(ngModel)]="commonOnly" (ngModelChange)="onCommonOnlyChange()" />
+        Common words only
+      </label>
+      <span class="count">
+        {{ filteredWords().length }} / {{ availableWords().length }} words
+      </span>
+    </div>
+    @if (filteredWords().length === 0) {
+      <p class="status">No words match your search.</p>
+    } @else {
+      <div class="word-list">
+        @for (item of filteredWords(); track item.word) {
+          <button class="word-btn" (click)="pickWord(item)">{{ item.word }}</button>
+        }
+      </div>
+    }
+  }
+
+  <div class="custom-word-bar">
+    <input
+      class="custom-word-input"
+      type="text"
+      placeholder="Enter any word (e.g. a proper noun)…"
+      [ngModel]="customWord()"
+      (ngModelChange)="customWord.set($event)"
+      (keydown.enter)="addCustomWord()"
+      [disabled]="checkingCustomWord()"
+    />
+    <button class="add-btn" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
+      Add
+    </button>
+    @if (customWordError()) {
+      <span class="custom-error">{{ customWordError() }}</span>
+    }
+  </div>
+
+  @if (phraseWords().length > 0) {
+    <div class="final">
+      <strong>Final phrase:</strong> "{{ phraseWords().join(' ') }}"
+    </div>
+  }
+</div>
