@@ -7,12 +7,6 @@ import { BlockConfigService } from '../../services/block-config.service';
 import { WordResult } from '../../models/blocks.models';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-interface PickedWord {
-  word: string;
-  /** One entry per block used: the block string and which letter it contributed. */
-  blockAssignments: Array<{ block: string; usedLetter: string }>;
-}
-
 @Component({
   selector: 'app-phrase-builder',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,7 +20,6 @@ export class PhraseBuilder {
 
   allBlocks = signal<string[]>([...this.blockConfig.blocks()]);
   phraseWords = signal<string[]>([]);
-  pickedWords = signal<PickedWord[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
   loadError = signal<string | null>(null);
@@ -44,6 +37,65 @@ export class PhraseBuilder {
       ? this.availableWords().filter(w => w.word.includes(term))
       : this.availableWords();
     return [...words].sort((a, b) => a.word.length - b.word.length || a.word.localeCompare(b.word));
+  });
+
+  /**
+   * Derives block assignments for the entire phrase simultaneously (no block
+   * reuse across words). Blocks within each word are returned in letter order.
+   */
+  phraseBlockDisplay = computed(() => {
+    const words = this.phraseWords();
+    const blocks = this.allBlocks();
+    if (words.length === 0) return [];
+
+    // Tag each letter with its word index and position within the word
+    type Tagged = { letter: string; wordIdx: number; posInWord: number; origIdx: number };
+    const tagged: Tagged[] = [];
+    for (let w = 0; w < words.length; w++) {
+      for (let i = 0; i < words[w].length; i++) {
+        tagged.push({ letter: words[w][i], wordIdx: w, posInWord: i, origIdx: tagged.length });
+      }
+    }
+
+    // Sort by constraint (fewest matching blocks first) for better matching
+    const sorted = [...tagged].sort(
+      (a, b) =>
+        blocks.filter(bl => bl.includes(a.letter)).length -
+        blocks.filter(bl => bl.includes(b.letter)).length
+    );
+
+    const used = new Set<number>();
+    const sortedToBlock = new Map<number, number>(); // sorted position -> block index
+
+    function backtrack(si: number): boolean {
+      if (si === sorted.length) return true;
+      const letter = sorted[si].letter;
+      for (let bi = 0; bi < blocks.length; bi++) {
+        if (!used.has(bi) && blocks[bi].includes(letter)) {
+          used.add(bi);
+          sortedToBlock.set(si, bi);
+          if (backtrack(si + 1)) return true;
+          used.delete(bi);
+          sortedToBlock.delete(si);
+        }
+      }
+      return false;
+    }
+
+    if (!backtrack(0)) return words.map(word => ({ word, blockAssignments: [] }));
+
+    // Map original tag index -> block index
+    const origToBlock = new Map<number, number>();
+    sorted.forEach((t, si) => origToBlock.set(t.origIdx, sortedToBlock.get(si)!));
+
+    // Group by word, sorted by posInWord so blocks appear in letter order
+    return words.map((word, wi) => {
+      const wordBlocks = tagged
+        .filter(t => t.wordIdx === wi)
+        .sort((a, b) => a.posInWord - b.posInWord)
+        .map(t => ({ block: blocks[origToBlock.get(t.origIdx)!], usedLetter: t.letter }));
+      return { word, blockAssignments: wordBlocks };
+    });
   });
 
   constructor() {
@@ -81,10 +133,6 @@ export class PhraseBuilder {
 
   pickWord(item: WordResult) {
     this.phraseWords.update(w => [...w, item.word]);
-    this.pickedWords.update(pw => [...pw, {
-      word: item.word,
-      blockAssignments: this.assignLetters(item.word, item.blocks),
-    }]);
     this.searchTerm.set('');
     this.loadWords();
   }
@@ -102,7 +150,6 @@ export class PhraseBuilder {
         if (result.canForm) {
           const lower = word.toLowerCase();
           this.phraseWords.update(w => [...w, lower]);
-          this.pickedWords.update(pw => [...pw, { word: lower, blockAssignments: [] }]);
           this.customWord.set('');
           this.loadWords();
         } else {
@@ -119,38 +166,10 @@ export class PhraseBuilder {
   reset() {
     this.allBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
-    this.pickedWords.set([]);
     this.searchTerm.set('');
     this.customWord.set('');
     this.customWordError.set(null);
     this.loadError.set(null);
     this.loadWords();
-  }
-
-  /**
-   * Assign each letter of the word to one block from the provided list.
-   * Uses constraint-ordered greedy (most constrained letters first).
-   */
-  private assignLetters(word: string, blocks: string[]): Array<{ block: string; usedLetter: string }> {
-    const letters = word.split('');
-    const used = new Set<number>();
-    const assignment: Record<number, string> = {};
-
-    // Sort letters by how many blocks can provide them (fewest first)
-    const sorted = [...letters].sort(
-      (a, b) =>
-        blocks.filter(bl => bl.includes(a)).length -
-        blocks.filter(bl => bl.includes(b)).length
-    );
-
-    for (const letter of sorted) {
-      const idx = blocks.findIndex((bl, i) => !used.has(i) && bl.includes(letter));
-      if (idx !== -1) {
-        used.add(idx);
-        assignment[idx] = letter;
-      }
-    }
-
-    return blocks.map((block, i) => ({ block, usedLetter: assignment[i] ?? '' }));
   }
 }

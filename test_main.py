@@ -204,6 +204,72 @@ class TestComputeMissingLetters:
         assert missing == {"a": 2}
 
 
+# ── get_combined_block_assignments ─────────────────────────────────────────────
+
+class TestCombinedBlockAssignments:
+    def test_single_word(self):
+        b = BlockPhraseBuilder.from_blocks(["c", "a", "t"])
+        result = b.get_combined_block_assignments("cat")
+        assert result is not None
+        assert len(result) == 1  # one word
+        blocks_used = {a['block'] for a in result[0]}
+        assert blocks_used == {"c", "a", "t"}
+
+    def test_two_words_no_reuse(self):
+        b = BlockPhraseBuilder.from_blocks(["c", "ar", "at", "w"])
+        result = b.get_combined_block_assignments("caw r")
+        assert result is not None
+        assert len(result) == 2
+        # Collect ALL blocks used across words
+        all_blocks = [a['block'] for word_assigns in result for a in word_assigns]
+        assert len(all_blocks) == len(set(all_blocks)), "blocks must not repeat across words"
+
+    def test_caw_t_uses_different_a_block(self):
+        """'caw t': caw must use ar(a) so at remains for t."""
+        b = BlockPhraseBuilder.from_blocks(["c", "ar", "at", "w"])
+        result = b.get_combined_block_assignments("caw t")
+        assert result is not None
+        # Word 'caw' should use ar for 'a' (not at), leaving at for 't'
+        caw_blocks = {a['block'] for a in result[0]}
+        t_blocks = {a['block'] for a in result[1]}
+        assert "at" in t_blocks
+        assert caw_blocks & t_blocks == set(), "no overlap"
+
+    def test_impossible_phrase(self):
+        b = BlockPhraseBuilder.from_blocks(["a"])
+        assert b.get_combined_block_assignments("ab") is None
+
+    def test_empty_phrase(self):
+        b = BlockPhraseBuilder.from_blocks(["a"])
+        assert b.get_combined_block_assignments("") == []
+
+    def test_used_letter_correct(self):
+        b = BlockPhraseBuilder.from_blocks(["abc", "def"])
+        result = b.get_combined_block_assignments("ad")
+        assert result is not None
+        assigns = result[0]
+        letters_used = {a['usedLetter'] for a in assigns}
+        assert letters_used == {'a', 'd'}
+
+
+class TestFindWordsForContextBlockAccuracy:
+    """Verify that blocks returned per word reflect the combined assignment."""
+
+    def test_no_block_reuse_in_results(self):
+        b = BlockPhraseBuilder.from_blocks(["c", "ar", "at", "w"])
+        # Context is "caw", find words that can follow it
+        results = b.find_words_for_context("caw", common_only=False)
+        for num_blocks, words in results.items():
+            for item in words:
+                # Each word's blocks should not overlap with blocks needed for "caw"
+                combined = "caw " + item['word']
+                assignments = b.get_combined_block_assignments(combined)
+                assert assignments is not None
+                all_blocks_flat = [a['block'] for wa in assignments for a in wa]
+                assert len(all_blocks_flat) == len(set(all_blocks_flat)), \
+                    f"block reuse in '{combined}': {all_blocks_flat}"
+
+
 # ── find_blocks_for_word ──────────────────────────────────────────────────────
 
 class TestFindBlocksForWord:

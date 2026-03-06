@@ -156,6 +156,26 @@ describe('PhraseBuilder', () => {
     });
   });
 
+  describe('phraseBlockDisplay', () => {
+    it('returns empty for no words', () => {
+      flushInitialLoad();
+      expect(component.phraseBlockDisplay()).toEqual([]);
+    });
+
+    it('assigns blocks without reuse across words', () => {
+      flushInitialLoad();
+      // Pick two words that share block letters
+      component.phraseWords.set(['by', 'no']);
+      const display = component.phraseBlockDisplay();
+      expect(display).toHaveLength(2);
+
+      // Collect all blocks used across all words
+      const allUsedBlocks = display.flatMap(d => d.blockAssignments.map(a => a.block));
+      const unique = new Set(allUsedBlocks);
+      expect(unique.size).toBe(allUsedBlocks.length); // no duplicates
+    });
+  });
+
   describe('error handling', () => {
     it('handles timeout (408) with specific message', () => {
       // Initial load triggers, make it fail with 408

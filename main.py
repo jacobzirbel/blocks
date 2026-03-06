@@ -303,12 +303,80 @@ class BlockPhraseBuilder:
         self._word_cache[cache_key] = results
         return results
 
+    def get_combined_block_assignments(self, phrase):
+        """
+        For a formable phrase, return per-word block assignments via bipartite
+        matching on the entire phrase at once (no block reuse across words).
+
+        Returns a list of lists, one per word.  Each inner list contains
+        dicts ``{'block': str, 'usedLetter': str}``.
+        Returns ``None`` if the phrase cannot be formed.
+        """
+        words = phrase.lower().split()
+        if not words:
+            return []
+
+        # Tag every letter with its word index
+        tagged: list[tuple[str, int]] = []
+        for w_idx, word in enumerate(words):
+            for ch in word:
+                tagged.append((ch, w_idx))
+
+        all_indices = list(range(len(self.blocks)))
+
+        if len(tagged) > len(all_indices):
+            return None
+
+        # Build adjacency
+        unique_letters = set(t[0] for t in tagged)
+        letter_to_blocks: dict[str, list[int]] = {}
+        for letter in unique_letters:
+            candidates = [i for i in all_indices if letter in self.blocks[i]]
+            if not candidates:
+                return None
+            letter_to_blocks[letter] = candidates
+
+        # Sort by constraint (fewest options first)
+        tagged_sorted = sorted(tagged, key=lambda t: len(letter_to_blocks[t[0]]))
+
+        used: set[int] = set()
+        assignment: list[int] = []  # parallel to tagged_sorted
+
+        def backtrack(idx: int) -> bool:
+            if idx == len(tagged_sorted):
+                return True
+            letter = tagged_sorted[idx][0]
+            for block_idx in letter_to_blocks[letter]:
+                if block_idx not in used:
+                    used.add(block_idx)
+                    assignment.append(block_idx)
+                    if backtrack(idx + 1):
+                        return True
+                    assignment.pop()
+                    used.discard(block_idx)
+            return False
+
+        if not backtrack(0):
+            return None
+
+        # Group by word
+        per_word: list[list[dict]] = [[] for _ in words]
+        for i, (letter, w_idx) in enumerate(tagged_sorted):
+            per_word[w_idx].append({
+                'block': self.blocks[assignment[i]],
+                'usedLetter': letter,
+            })
+        return per_word
+
     def find_words_for_context(self, context_phrase='', common_only=True):
         """
         Return all words that can be added to the given context phrase using this
         builder's blocks. A word W is included only if (context_phrase + W) can
         be spelled simultaneously from the available blocks, ensuring that picking
         W remains possible regardless of how the context blocks were assigned.
+
+        Each returned word's ``blocks`` field reflects the combined assignment
+        (no block reuse with the context phrase).
         """
         if not context_phrase.strip():
             return self.find_possible_words(common_only=common_only)
@@ -318,13 +386,22 @@ class BlockPhraseBuilder:
         if not can_form or len(blocks_used) >= len(self.blocks):
             return {}
 
+        context_words = context_phrase.lower().split()
+        num_context_words = len(context_words)
+
         all_words = self.find_possible_words(common_only=common_only)
         result = {}
         for num_blocks, words in all_words.items():
-            filtered = [
-                item for item in words
-                if self.can_form_phrase((context_phrase + ' ' + item['word']).strip())[0]
-            ]
+            filtered = []
+            for item in words:
+                combined = (context_phrase + ' ' + item['word']).strip()
+                assignments = self.get_combined_block_assignments(combined)
+                if assignments is not None:
+                    # The last word's assignment belongs to the candidate word
+                    word_assignment = assignments[num_context_words]
+                    updated = dict(item)
+                    updated['blocks'] = [a['block'] for a in word_assignment]
+                    filtered.append(updated)
             if filtered:
                 result[num_blocks] = filtered
         return result

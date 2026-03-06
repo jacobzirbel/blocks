@@ -75,7 +75,7 @@
     <div class="final">
       <strong>Final phrase:</strong> "{{ phraseWords().join(' ') }}"
       <div class="final-blocks">
-        @for (picked of pickedWords(); track $index) {
+        @for (picked of phraseBlockDisplay(); track $index) {
           <div class="final-word-row">
             <span class="final-word-label">{{ picked.word }}</span>
             @if (picked.blockAssignments.length > 0) {
