@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BlocksService } from '../../services/blocks.service';
+import { BlockConfigService } from '../../services/block-config.service';
+import { canFormWithBlocks, computeMissingLetters } from '../../core/block-matcher';
 import { PhraseCheckResult } from '../../models/blocks.models';
 
 @Component({
@@ -11,7 +12,7 @@ import { PhraseCheckResult } from '../../models/blocks.models';
   styleUrl: './phrase-checker.css',
 })
 export class PhraseChecker {
-  private readonly service = inject(BlocksService);
+  private readonly blockConfig = inject(BlockConfigService);
 
   phrase = '';
   loading = signal(false);
@@ -27,12 +28,20 @@ export class PhraseChecker {
     if (!p) return;
     this.loading.set(true);
     this.result.set(null);
-    this.service.checkPhrase(p).subscribe({
-      next: r => {
-        this.result.set(r);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+
+    const blocks = this.blockConfig.blocks();
+    const clean = p.replace(/\s/g, '').toLowerCase();
+    const { matched, usedIndices } = canFormWithBlocks(clean, blocks);
+    const blocksUsed = [...usedIndices].map(i => blocks[i]);
+
+    const missingLetters: Record<string, number> = matched
+      ? {}
+      : computeMissingLetters(
+          [...clean].reduce((acc, ch) => { acc[ch] = (acc[ch] ?? 0) + 1; return acc; }, {} as Record<string, number>),
+          blocks
+        );
+
+    this.result.set({ phrase: p, canForm: matched, blocksUsed, missingLetters });
+    this.loading.set(false);
   }
 }

@@ -1,8 +1,6 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, signal } from '@angular/core';
 import { WordResult } from './block-matcher';
-
-const API_BASE = 'http://localhost:8000';
+import WORD_LIST from './wordlist.json';
 
 interface Pending {
   type: string;
@@ -14,8 +12,7 @@ interface Pending {
 
 @Injectable({ providedIn: 'root' })
 export class BlockMatcherService {
-  private readonly http = inject(HttpClient);
-  private worker: Worker | null = null;
+  private worker: Worker;
   private nextId = 0;
   private pending = new Map<number, Pending>();
   private queue: Pending[] = [];
@@ -23,14 +20,6 @@ export class BlockMatcherService {
   readonly ready = signal(false);
 
   constructor() {
-    this.init();
-  }
-
-  private async init() {
-    const wordList = await this.http
-      .get<string[]>(`${API_BASE}/static/wordlist.json`)
-      .toPromise();
-
     this.worker = new Worker(
       new URL('./block-matcher.worker', import.meta.url),
       { type: 'module' }
@@ -41,10 +30,9 @@ export class BlockMatcherService {
 
       if (type === 'READY') {
         this.ready.set(true);
-        // Flush queued messages
         for (const item of this.queue) {
           this.pending.set(item.requestId, item);
-          this.worker!.postMessage({ type: item.type, payload: { ...item.payload, requestId: item.requestId } });
+          this.worker.postMessage({ type: item.type, payload: { ...item.payload, requestId: item.requestId } });
         }
         this.queue = [];
         return;
@@ -64,7 +52,7 @@ export class BlockMatcherService {
       this.queue = [];
     };
 
-    this.worker.postMessage({ type: 'INIT', payload: { wordList } });
+    this.worker.postMessage({ type: 'INIT', payload: { wordList: WORD_LIST } });
   }
 
   private send<T>(type: string, payload: Record<string, unknown>): Promise<T> {
@@ -74,7 +62,7 @@ export class BlockMatcherService {
 
       if (this.ready()) {
         this.pending.set(requestId, item);
-        this.worker!.postMessage({ type, payload: { ...payload, requestId } });
+        this.worker.postMessage({ type, payload: { ...payload, requestId } });
       } else {
         this.queue.push(item);
       }
