@@ -137,6 +137,11 @@ export class PhraseBuilder {
     this.loadWords();
   }
 
+  removeWord(index: number) {
+    this.phraseWords.update(w => w.filter((_, i) => i !== index));
+    this.loadWords();
+  }
+
   async addCustomWord() {
     const word = this.customWord().trim();
     if (!word) return;

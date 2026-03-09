@@ -5,7 +5,13 @@
     @if (phraseWords().length === 0) {
       <span class="phrase-empty">Start picking words below…</span>
     } @else {
-      <span class="phrase-text">{{ phraseWords().join(' ') }}</span>
+      <div class="phrase-words">
+        @for (word of phraseWords(); track $index) {
+          <span class="phrase-word">
+            {{ word }}<button class="remove-word" (click)="removeWord($index)" title="Remove">×</button>
+          </span>
+        }
+      </div>
       <button class="btn-reset" (click)="reset()">Reset</button>
     }
   </div>
