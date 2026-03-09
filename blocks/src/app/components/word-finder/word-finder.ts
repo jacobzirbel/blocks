@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { BlocksService } from '../../services/blocks.service';
 import { BlockConfigService } from '../../services/block-config.service';
-import { WordsByBlockCount, WordResult } from '../../models/blocks.models';
+import { BlockMatcherService } from '../../core/block-matcher.service';
+import { WordResult } from '../../models/blocks.models';
 
 @Component({
   selector: 'app-word-finder',
@@ -10,7 +10,7 @@ import { WordsByBlockCount, WordResult } from '../../models/blocks.models';
   styleUrl: './word-finder.css',
 })
 export class WordFinder {
-  private readonly service = inject(BlocksService);
+  private readonly matcher = inject(BlockMatcherService);
   readonly blockConfig = inject(BlockConfigService);
 
   commonOnly = signal(true);
@@ -18,31 +18,33 @@ export class WordFinder {
   error = signal<string | null>(null);
   searched = signal(false);
 
-  private rawResults = signal<WordsByBlockCount>({});
+  private rawResults = signal<WordResult[]>([]);
 
-  totalWords = computed(() =>
-    Object.values(this.rawResults()).reduce((s, arr) => s + arr.length, 0)
-  );
+  totalWords = computed(() => this.rawResults().length);
 
-  wordGroups = computed(() =>
-    Object.entries(this.rawResults())
-      .map(([k, words]) => ({ numBlocks: Number(k), words: words as WordResult[] }))
-      .sort((a, b) => a.numBlocks - b.numBlocks)
-  );
+  wordGroups = computed(() => {
+    const grouped = new Map<number, WordResult[]>();
+    for (const w of this.rawResults()) {
+      const arr = grouped.get(w.numBlocks) ?? [];
+      arr.push(w);
+      grouped.set(w.numBlocks, arr);
+    }
+    return [...grouped.entries()]
+      .map(([numBlocks, words]) => ({ numBlocks, words }))
+      .sort((a, b) => a.numBlocks - b.numBlocks);
+  });
 
-  search() {
+  async search() {
     this.loading.set(true);
     this.error.set(null);
-    this.service.findWords(this.commonOnly(), this.blockConfig.blocks()).subscribe({
-      next: results => {
-        this.rawResults.set(results);
-        this.searched.set(true);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Failed to find words.');
-        this.loading.set(false);
-      },
-    });
+    try {
+      const results = await this.matcher.findAvailableWords([], this.blockConfig.blocks(), this.commonOnly());
+      this.rawResults.set(results);
+      this.searched.set(true);
+    } catch {
+      this.error.set('Failed to find words.');
+    } finally {
+      this.loading.set(false);
+    }
   }
 }

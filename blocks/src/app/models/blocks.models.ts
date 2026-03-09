@@ -24,8 +24,3 @@ export interface WordsByBlockCount {
   [numBlocks: number]: WordResult[];
 }
 
-export interface PhraseBuilderState {
-  remainingBlocks: string[];
-  phraseWords: string[];
-  availableWords: WordResult[];
-}
