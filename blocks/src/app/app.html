@@ -17,11 +17,33 @@
           <button class="btn-apply" (click)="applyCustom()" [disabled]="!customText().trim()">
             Use these blocks
           </button>
-          <span class="presets-label">or try a preset:</span>
+          <span class="presets-label">Presets:</span>
           <button class="btn-preset" (click)="usePreset('cabin')">Cabin</button>
           <button class="btn-preset" (click)="usePreset('goodonly')">Good Only</button>
+          @for (name of userPresetNames(); track name) {
+            <span class="user-preset-wrap">
+              <button class="btn-preset btn-user-preset" (click)="useUserPreset(name)">{{ name }}</button>
+              <button class="btn-preset-delete" (click)="deleteUserPreset(name)" title="Delete preset">×</button>
+            </span>
+          }
           @if (blockConfig.blocks().length) {
             <button class="btn-cancel" (click)="editingBlocks.set(false)">Cancel</button>
+          }
+        </div>
+        <div class="save-preset-row">
+          <input
+            class="preset-name-input"
+            type="text"
+            placeholder="Preset name…"
+            [ngModel]="newPresetName()"
+            (ngModelChange)="newPresetName.set($event)"
+            (keydown.enter)="saveAsPreset()"
+          />
+          <button class="btn-save-preset" (click)="saveAsPreset()" [disabled]="!newPresetName().trim() || !customText().trim()">
+            Save as preset
+          </button>
+          @if (savePresetError()) {
+            <span class="preset-error">{{ savePresetError() }}</span>
           }
         </div>
       </div>

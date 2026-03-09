@@ -15,11 +15,15 @@ export class App {
 
   editingBlocks = signal(!this.blockConfig.blocks().length);
   customText = signal(this.blockConfig.savedCustomBlocks().join('\n'));
+  newPresetName = signal('');
+  savePresetError = signal('');
 
   readonly blockSummary = computed(() => {
     const b = this.blockConfig.blocks();
     return `${b.length} blocks · ${b.reduce((s, bl) => s + bl.length, 0)} letters`;
   });
+
+  readonly userPresetNames = computed(() => Object.keys(this.blockConfig.userPresets()));
 
   applyCustom() {
     this.blockConfig.useCustom(this.customText());
@@ -29,6 +33,25 @@ export class App {
   usePreset(name: 'cabin' | 'goodonly') {
     this.blockConfig.usePreset(name);
     this.editingBlocks.set(false);
+  }
+
+  useUserPreset(name: string) {
+    this.blockConfig.useUserPreset(name);
+    this.editingBlocks.set(false);
+  }
+
+  saveAsPreset() {
+    const name = this.newPresetName().trim();
+    if (!name) { this.savePresetError.set('Enter a preset name.'); return; }
+    const text = this.customText().trim();
+    if (!text) { this.savePresetError.set('Add some blocks first.'); return; }
+    this.blockConfig.saveUserPreset(name, text);
+    this.newPresetName.set('');
+    this.savePresetError.set('');
+  }
+
+  deleteUserPreset(name: string) {
+    this.blockConfig.deleteUserPreset(name);
   }
 
   openEditor() {
