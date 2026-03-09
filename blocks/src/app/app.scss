@@ -1,47 +1,127 @@
-.nav {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem 1rem;
-  background: #1565c0;
-  color: white;
+* { box-sizing: border-box; }
 
-  .nav-title {
-    font-weight: 700;
-    font-size: 1rem;
-    margin-right: auto;
-    letter-spacing: 0.02em;
-  }
-
-  a {
-    color: rgba(255, 255, 255, 0.8);
-    text-decoration: none;
-    padding: 0.35rem 0.6rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    transition: background 0.15s;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: white;
-    }
-
-    &.active {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-    }
-  }
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f8f9fa;
+  color: #212121;
 }
 
-.content {
-  max-width: 900px;
+.page {
+  max-width: 860px;
   margin: 0 auto;
   padding: 1rem;
 }
 
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.header-title h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.4rem;
+  color: #1565c0;
+}
+
+/* Block editor */
+.block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.block-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.presets-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.btn-apply {
+  padding: 0.4rem 1rem;
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  &:disabled { background: #aaa; cursor: default; }
+}
+
+.btn-preset {
+  padding: 0.35rem 0.75rem;
+  background: white;
+  border: 1px solid #1565c0;
+  color: #1565c0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  &:hover { background: #e3f2fd; }
+}
+
+.btn-cancel {
+  padding: 0.35rem 0.75rem;
+  background: white;
+  border: 1px solid #ccc;
+  color: #555;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+/* Block summary bar */
+.block-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #e3f2fd;
+  border-radius: 8px;
+  padding: 0.5rem 0.875rem;
+}
+
+.summary-text {
+  font-size: 0.9rem;
+  color: #1565c0;
+  font-family: monospace;
+  flex: 1;
+}
+
+.btn-edit {
+  padding: 0.3rem 0.7rem;
+  background: white;
+  border: 1px solid #1565c0;
+  color: #1565c0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  &:hover { background: #bbdefb; }
+}
+
+.no-blocks-hint {
+  color: #888;
+  text-align: center;
+  margin-top: 2rem;
+}
+
 @media (max-width: 480px) {
-  .content {
-    padding: 0.5rem;
-  }
+  .page { padding: 0.75rem; }
+  .header-title h1 { font-size: 1.2rem; }
 }

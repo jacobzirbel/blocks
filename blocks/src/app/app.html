@@ -1,11 +1,41 @@
-<nav class="nav">
-  <span class="nav-title">Block Phrase Builder</span>
-  <a routerLink="/blocks" routerLinkActive="active">Blocks</a>
-  <a routerLink="/check" routerLinkActive="active">Check Phrase</a>
-  <a routerLink="/words" routerLinkActive="active">Find Words</a>
-  <a routerLink="/builder" routerLinkActive="active">Phrase Builder</a>
-</nav>
+<div class="page">
+  <header class="header">
+    <div class="header-title">
+      <h1>Block Phrase Builder</h1>
+    </div>
 
-<main class="content">
-  <router-outlet />
-</main>
+    @if (editingBlocks()) {
+      <div class="block-editor">
+        <textarea
+          class="block-textarea"
+          rows="4"
+          placeholder="One block per line:&#10;mwja&#10;bozt&#10;hujiv"
+          [ngModel]="customText()"
+          (ngModelChange)="customText.set($event)"
+        ></textarea>
+        <div class="editor-actions">
+          <button class="btn-apply" (click)="applyCustom()" [disabled]="!customText().trim()">
+            Use these blocks
+          </button>
+          <span class="presets-label">or try a preset:</span>
+          <button class="btn-preset" (click)="usePreset('cabin')">Cabin</button>
+          <button class="btn-preset" (click)="usePreset('goodonly')">Good Only</button>
+          @if (blockConfig.blocks().length) {
+            <button class="btn-cancel" (click)="editingBlocks.set(false)">Cancel</button>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="block-summary">
+        <span class="summary-text">{{ blockSummary() }}</span>
+        <button class="btn-edit" (click)="openEditor()">Edit blocks</button>
+      </div>
+    }
+  </header>
+
+  @if (blockConfig.blocks().length) {
+    <app-phrase-builder />
+  } @else {
+    <p class="no-blocks-hint">Enter your blocks above to get started.</p>
+  }
+</div>

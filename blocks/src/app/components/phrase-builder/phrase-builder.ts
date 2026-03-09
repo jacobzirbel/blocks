@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BlockConfigService } from '../../services/block-config.service';
 import { BlockMatcherService } from '../../core/block-matcher.service';
+import { canFormWithBlocks } from '../../core/block-matcher';
 import { WordResult } from '../../core/block-matcher';
 
 @Component({
@@ -15,7 +16,7 @@ export class PhraseBuilder {
   private readonly matcher = inject(BlockMatcherService);
   private readonly blockConfig = inject(BlockConfigService);
 
-  allBlocks = signal<string[]>([...this.blockConfig.blocks()]);
+  allBlocks = signal<string[]>([]);
   phraseWords = signal<string[]>([]);
   availableWords = signal<WordResult[]>([]);
   loading = signal(false);
@@ -26,8 +27,12 @@ export class PhraseBuilder {
   customWordError = signal<string | null>(null);
   checkingCustomWord = signal(false);
 
-  /** Exposed so the template can show a spinner on first load. */
-  readonly workerReady = this.matcher.ready;
+  /** Indices of blocks consumed by the current phrase. */
+  usedBlockIndices = computed(() => {
+    if (this.phraseWords().length === 0) return new Set<number>();
+    const phrase = this.phraseWords().join('');
+    return canFormWithBlocks(phrase, this.allBlocks()).usedIndices;
+  });
 
   filteredWords = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
@@ -37,10 +42,6 @@ export class PhraseBuilder {
     return [...words].sort((a, b) => a.word.length - b.word.length || a.word.localeCompare(b.word));
   });
 
-  /**
-   * Derives block assignments for the entire phrase simultaneously (no block
-   * reuse across words). Blocks within each word are returned in letter order.
-   */
   phraseBlockDisplay = computed(() => {
     const words = this.phraseWords();
     const blocks = this.allBlocks();
@@ -93,7 +94,19 @@ export class PhraseBuilder {
   });
 
   constructor() {
-    this.loadWords();
+    // Reset and reload whenever the block config changes
+    effect(() => {
+      const blocks = this.blockConfig.blocks();
+      untracked(() => {
+        this.allBlocks.set([...blocks]);
+        this.phraseWords.set([]);
+        this.searchTerm.set('');
+        this.customWord.set('');
+        this.customWordError.set(null);
+        this.loadError.set(null);
+        this.loadWords();
+      });
+    });
   }
 
   onCommonOnlyChange() {
@@ -147,7 +160,6 @@ export class PhraseBuilder {
   }
 
   reset() {
-    this.allBlocks.set([...this.blockConfig.blocks()]);
     this.phraseWords.set([]);
     this.searchTerm.set('');
     this.customWord.set('');

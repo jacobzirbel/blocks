@@ -1,49 +1,43 @@
-<div class="builder-page">
-  <h2>Interactive Phrase Builder</h2>
-  <p class="hint">Pick a word, remove those blocks, and keep building your phrase.</p>
+<div class="builder">
 
+  <!-- Phrase bar -->
   <div class="phrase-bar">
-    <span class="label">Phrase so far:</span>
     @if (phraseWords().length === 0) {
-      <em class="empty">none yet</em>
+      <span class="phrase-empty">Start picking words below…</span>
     } @else {
-      <strong class="phrase">{{ phraseWords().join(' ') }}</strong>
-    }
-    <button class="reset-btn" (click)="reset()">Reset</button>
-  </div>
-
-  <div class="blocks-remaining">
-    <span class="label">Blocks:</span>
-    @for (b of allBlocks(); track $index) {
-      <span class="block-chip">{{ b }}</span>
+      <span class="phrase-text">{{ phraseWords().join(' ') }}</span>
+      <button class="btn-reset" (click)="reset()">Reset</button>
     }
   </div>
 
+  <!-- Blocks display: used (greyed) + remaining -->
+  <div class="blocks-row">
+    @for (block of allBlocks(); track $index) {
+      <span class="block-chip" [class.used]="usedBlockIndices().has($index)">{{ block }}</span>
+    }
+  </div>
+
+  <!-- Word list -->
   @if (loading()) {
-    <p class="status">Finding words...</p>
+    <p class="status">Finding words…</p>
   } @else if (loadError()) {
     <p class="status error">{{ loadError() }}</p>
   } @else if (availableWords().length === 0) {
-    <p class="status">No more words can be formed with remaining blocks.</p>
+    <p class="status">No more words can be formed with the remaining blocks.</p>
   } @else {
     <div class="controls-bar">
       <input
         class="search-input"
         type="search"
-        placeholder="Search words…"
+        placeholder="Filter words…"
         [ngModel]="searchTerm()"
         (ngModelChange)="searchTerm.set($event)"
       />
-      <!-- <label class="toggle-label">
-        <input type="checkbox" [(ngModel)]="commonOnly" (ngModelChange)="onCommonOnlyChange()" />
-        Common words only
-      </label> -->
-      <span class="count">
-        {{ filteredWords().length }} / {{ availableWords().length }} words
-      </span>
+      <span class="word-count">{{ filteredWords().length }} / {{ availableWords().length }}</span>
     </div>
+
     @if (filteredWords().length === 0) {
-      <p class="status">No words match your search.</p>
+      <p class="status">No words match.</p>
     } @else {
       <div class="word-list">
         @for (item of filteredWords(); track item.word) {
@@ -53,17 +47,18 @@
     }
   }
 
-  <div class="custom-word-bar">
+  <!-- Custom word -->
+  <div class="custom-bar">
     <input
-      class="custom-word-input"
+      class="custom-input"
       type="text"
-      placeholder="Enter any word (e.g. a proper noun)…"
+      placeholder="Add any word (proper noun, etc.)…"
       [ngModel]="customWord()"
       (ngModelChange)="customWord.set($event)"
       (keydown.enter)="addCustomWord()"
       [disabled]="checkingCustomWord()"
     />
-    <button class="add-btn" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
+    <button class="btn-add" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
       Add
     </button>
     @if (customWordError()) {
@@ -71,27 +66,27 @@
     }
   </div>
 
+  <!-- Final phrase with block breakdown -->
   @if (phraseWords().length > 0) {
-    <div class="final">
-      <strong>Final phrase:</strong> "{{ phraseWords().join(' ') }}"
-      <div class="final-blocks">
+    <div class="final-phrase">
+      <div class="final-label">"{{ phraseWords().join(' ') }}"</div>
+      <div class="final-words">
         @for (picked of phraseBlockDisplay(); track $index) {
           <div class="final-word-row">
-            <span class="final-word-label">{{ picked.word }}</span>
-            @if (picked.blockAssignments.length > 0) {
-              <div class="final-word-blocks">
-                @for (a of picked.blockAssignments; track $index) {
-                  <span class="final-block-chip">
-                    @for (letter of a.block.split(''); track $index) {
-                      <span [class.used-letter]="letter === a.usedLetter">{{ letter }}</span>
-                    }
-                  </span>
-                }
-              </div>
-            }
+            <span class="final-word">{{ picked.word }}</span>
+            <div class="final-blocks">
+              @for (a of picked.blockAssignments; track $index) {
+                <span class="final-chip">
+                  @for (letter of a.block.split(''); track $index) {
+                    <span [class.highlight]="letter === a.usedLetter">{{ letter }}</span>
+                  }
+                </span>
+              }
+            </div>
           </div>
         }
       </div>
     </div>
   }
+
 </div>

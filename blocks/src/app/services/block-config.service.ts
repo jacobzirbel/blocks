@@ -10,19 +10,14 @@ export type BlockPreset = 'cabin' | 'goodonly' | 'saved' | 'custom';
 @Injectable({ providedIn: 'root' })
 export class BlockConfigService {
   readonly savedCustomBlocks = signal<string[]>(this._loadSaved());
-  readonly preset = signal<BlockPreset>(this.savedCustomBlocks().length ? 'saved' : 'cabin');
+  readonly preset = signal<BlockPreset>(this.savedCustomBlocks().length ? 'saved' : 'custom');
   readonly blocks = signal<string[]>(
-    this.savedCustomBlocks().length ? [...this.savedCustomBlocks()] : [...PRESET_CABIN]
+    this.savedCustomBlocks().length ? [...this.savedCustomBlocks()] : []
   );
 
   usePreset(name: 'cabin' | 'goodonly') {
     this.preset.set(name);
     this.blocks.set(name === 'cabin' ? [...PRESET_CABIN] : [...PRESET_GOOD_ONLY]);
-  }
-
-  useSaved() {
-    this.preset.set('saved');
-    this.blocks.set([...this.savedCustomBlocks()]);
   }
 
   useCustom(rawInput: string) {
