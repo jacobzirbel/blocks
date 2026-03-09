@@ -23,6 +23,7 @@ export class PhraseBuilder {
   loadError = signal<string | null>(null);
   searchTerm = signal('');
   commonOnly = true;
+  listView = signal(true);
   customWord = signal('');
   customWordError = signal<string | null>(null);
   checkingCustomWord = signal(false);

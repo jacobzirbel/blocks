@@ -26,45 +26,56 @@
     <p class="status">No more words can be formed with the remaining blocks.</p>
   } @else {
     <div class="controls-bar">
+      <!-- Custom word input (moved to top) -->
       <input
-        class="search-input"
-        type="search"
-        placeholder="Filter words…"
-        [ngModel]="searchTerm()"
-        (ngModelChange)="searchTerm.set($event)"
+        class="custom-input"
+        type="text"
+        placeholder="Add any word…"
+        [ngModel]="customWord()"
+        (ngModelChange)="customWord.set($event)"
+        (keydown.enter)="addCustomWord()"
+        [disabled]="checkingCustomWord()"
       />
-      <span class="word-count">{{ filteredWords().length }} / {{ availableWords().length }}</span>
+      <button class="btn-add" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
+        Add
+      </button>
+
+      <div class="controls-right">
+        <input
+          class="search-input"
+          type="search"
+          placeholder="Filter…"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+        />
+        <div class="view-switcher">
+          <button class="view-opt" [class.active]="listView()" (click)="listView.set(true)">Scrollable</button>
+          <button class="view-opt" [class.active]="!listView()" (click)="listView.set(false)">Scannable</button>
+        </div>
+        <span class="word-count">{{ filteredWords().length }} / {{ availableWords().length }}</span>
+      </div>
     </div>
+
+    @if (customWordError()) {
+      <span class="custom-error">{{ customWordError() }}</span>
+    }
 
     @if (filteredWords().length === 0) {
       <p class="status">No words match.</p>
+    } @else if (listView()) {
+      <ul class="word-list-view">
+        @for (item of filteredWords(); track item.word) {
+          <li><button class="word-list-btn" (click)="pickWord(item)">{{ item.word }}</button></li>
+        }
+      </ul>
     } @else {
-      <div class="word-list">
+      <div class="word-chip-view">
         @for (item of filteredWords(); track item.word) {
           <button class="word-btn" (click)="pickWord(item)">{{ item.word }}</button>
         }
       </div>
     }
   }
-
-  <!-- Custom word -->
-  <div class="custom-bar">
-    <input
-      class="custom-input"
-      type="text"
-      placeholder="Add any word (proper noun, etc.)…"
-      [ngModel]="customWord()"
-      (ngModelChange)="customWord.set($event)"
-      (keydown.enter)="addCustomWord()"
-      [disabled]="checkingCustomWord()"
-    />
-    <button class="btn-add" (click)="addCustomWord()" [disabled]="!customWord().trim() || checkingCustomWord()">
-      Add
-    </button>
-    @if (customWordError()) {
-      <span class="custom-error">{{ customWordError() }}</span>
-    }
-  </div>
 
   <!-- Final phrase with block breakdown -->
   @if (phraseWords().length > 0) {
